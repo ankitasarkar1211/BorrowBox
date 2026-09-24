@@ -5,6 +5,7 @@ const {
   getItemById,
   updateItem,
   deleteItem,
+  checkItemAvailability,
 } = require('../controllers/itemController');
 const { protect } = require('../middleware/auth');
 
@@ -15,6 +16,11 @@ const router = express.Router();
 router.use(protect);
 
 router.route('/').post(createItem).get(getItems);
+
+// Added for the borrowing module — has more path segments than /:id so
+// route order relative to it doesn't matter, but it's grouped here for
+// readability.
+router.get('/:id/availability', checkItemAvailability);
 
 router.route('/:id').get(getItemById).put(updateItem).delete(deleteItem);
 

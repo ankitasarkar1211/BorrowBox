@@ -7,6 +7,8 @@ const {
   validateUpdateItemInput,
   parseListQuery,
 } = require('../utils/itemValidators');
+const { validateBorrowDates } = require('../utils/dateValidators');
+const { findOverlappingLoans } = require('../utils/availability');
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -223,4 +225,44 @@ const deleteItem = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { createItem, getItems, getItemById, updateItem, deleteItem };
+// @route   GET /api/items/:id/availability
+// @access  Private
+//
+// Added for the borrowing module. Reuses the same date validation and
+// overlap logic the borrow-request endpoints use, so "can I request
+// this?" and "will approval succeed?" are always answered by the same
+// rule. Does not require or create a borrow request.
+const checkItemAvailability = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  if (!isValidObjectId(id)) {
+    throw new ApiError(400, 'Invalid item id.');
+  }
+
+  const item = await Item.findById(id);
+  if (!item || item.communityId !== req.user.communityId) {
+    throw new ApiError(404, 'Item not found.');
+  }
+
+  const dateResult = validateBorrowDates(req.query);
+  if (dateResult.errors.length > 0) {
+    throw new ApiError(400, dateResult.errors.join(' '));
+  }
+  const { startDate, endDate } = dateResult;
+
+  const overlapping = await findOverlappingLoans({ itemId: item._id, startDate, endDate });
+  const isManuallyPaused = item.availabilityStatus === 'unavailable';
+  const available = !isManuallyPaused && overlapping.length === 0;
+
+  const data = { itemId: item._id, startDate, endDate, available };
+
+  if (!available) {
+    // Enough to act on, without exposing who holds the conflicting
+    // loan or any other private detail.
+    data.reason = isManuallyPaused ? 'unavailable' : 'date_conflict';
+  }
+
+  return res.status(200).json({ success: true, data });
+});
+
+module.exports = { createItem, getItems, getItemById, updateItem, deleteItem, checkItemAvailability };
