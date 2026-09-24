@@ -124,6 +124,18 @@ const itemSchema = new mongoose.Schema(
       default: 'available',
       index: true,
     },
+    // Internal only — never returned in API responses (it's not in
+    // itemController's toPublicItem whitelist) and never accepted from
+    // a client. The borrowing module ($inc's this on every approval
+    // attempt, inside a transaction) uses it purely to force MongoDB
+    // to detect a genuine write conflict when two concurrent approval
+    // attempts target the same item, which is what makes the
+    // double-booking protection real rather than best-effort. See
+    // README "Concurrency / double-booking protection".
+    bookingVersion: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
