@@ -3,6 +3,8 @@ const cors = require('cors');
 
 const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
+const borrowRequestRoutes = require('./routes/borrowRequestRoutes');
+const loanRoutes = require('./routes/loanRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -34,6 +36,8 @@ app.get('/api/health', (req, res) => {
 // --- Feature routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
+app.use('/api/borrow-requests', borrowRequestRoutes);
+app.use('/api/loans', loanRoutes);
 
 // --- 404 + centralized error handling (must be last) ---
 app.use(notFound);
