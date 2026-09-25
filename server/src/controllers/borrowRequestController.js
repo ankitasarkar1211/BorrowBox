@@ -2,11 +2,14 @@ const mongoose = require('mongoose');
 const BorrowRequest = require('../models/BorrowRequest');
 const Loan = require('../models/Loan');
 const Item = require('../models/Item');
+const User = require('../models/User');
+const CreditTransaction = require('../models/CreditTransaction');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
-const { validateBorrowDates } = require('../utils/dateValidators');
+const { validateBorrowDates, getDurationDays } = require('../utils/dateValidators');
 const { isItemAvailable } = require('../utils/availability');
 const withTransaction = require('../utils/withTransaction');
+const { safeNotify } = require('../services/notificationService');
 const {
   validateCreateBorrowRequestInput,
   validateRejectionReason,
@@ -114,6 +117,15 @@ const createBorrowRequest = asyncHandler(async (req, res) => {
   });
 
   await borrowRequest.populate(POPULATE_FIELDS);
+
+  await safeNotify({
+    recipient: item.owner,
+    type: 'borrow_request_received',
+    title: 'New borrow request',
+    message: `${req.user.name} requested to borrow "${item.title}".`,
+    relatedEntityType: 'BorrowRequest',
+    relatedEntityId: borrowRequest._id,
+  });
 
   return res.status(201).json({
     success: true,
@@ -223,9 +235,9 @@ const approveBorrowRequest = asyncHandler(async (req, res) => {
     throw new ApiError(409, `This request has already been ${existing.status}.`);
   }
 
-  let loan;
+  let result;
   try {
-    loan = await withTransaction(async (session) => {
+    result = await withTransaction(async (session) => {
       // Touch the Item document inside the transaction. This is the
       // core of the double-booking protection: see README
       // "Concurrency / double-booking protection" for the full
@@ -278,6 +290,49 @@ const approveBorrowRequest = asyncHandler(async (req, res) => {
         );
       }
 
+      // --- Borrow Credits ---
+      // borrowCost = item.creditCost × number of borrowing days. Both
+      // factors are server-side values (item.creditCost from the
+      // document just read; the day count derived from the *stored*,
+      // already-validated startDate/endDate on the claimed request) —
+      // nothing here is ever taken from the request body.
+      const durationDays = getDurationDays(claimed.startDate, claimed.endDate);
+      const borrowCost = item.creditCost * durationDays;
+
+      const borrowerDoc = await User.findById(claimed.borrower).session(session);
+      if (!borrowerDoc) {
+        throw new ApiError(404, 'Borrower account no longer exists.');
+      }
+
+      if (borrowerDoc.creditsBalance < borrowCost) {
+        // Aborts the transaction exactly like the availability-conflict
+        // case above: bookingVersion and status:'approved' both roll
+        // back, the request is left 'pending', and — critically — no
+        // credits move and no Loan is created.
+        throw new ApiError(
+          409,
+          `Insufficient credits: this borrowing period costs ${borrowCost} credit(s), but the borrower has ${borrowerDoc.creditsBalance}.`
+        );
+      }
+
+      const ownerDoc = await User.findById(claimed.owner).session(session);
+      if (!ownerDoc) {
+        throw new ApiError(404, 'Owner account no longer exists.');
+      }
+
+      const borrowerBalanceBefore = borrowerDoc.creditsBalance;
+      const borrowerBalanceAfter = borrowerBalanceBefore - borrowCost;
+      const ownerBalanceBefore = ownerDoc.creditsBalance;
+      const ownerBalanceAfter = ownerBalanceBefore + borrowCost;
+
+      // .save() (rather than a raw $inc) so the schema's `min: 0`
+      // validator runs as a second, independent guard on top of the
+      // balance check just above.
+      borrowerDoc.creditsBalance = borrowerBalanceAfter;
+      ownerDoc.creditsBalance = ownerBalanceAfter;
+      await borrowerDoc.save({ session });
+      await ownerDoc.save({ session });
+
       const [createdLoan] = await Loan.create(
         [
           {
@@ -293,7 +348,35 @@ const approveBorrowRequest = asyncHandler(async (req, res) => {
         { session }
       );
 
-      return createdLoan;
+      // Both transaction records reference the Loan that just made
+      // them happen, and both are created in the same DB transaction
+      // as the balance changes and the Loan itself — spend, reward,
+      // and loan creation either all happen together or none do.
+      await CreditTransaction.create(
+        [
+          {
+            user: claimed.borrower,
+            amount: -borrowCost,
+            type: 'borrow_spend',
+            balanceBefore: borrowerBalanceBefore,
+            balanceAfter: borrowerBalanceAfter,
+            loan: createdLoan._id,
+            description: `Borrowed "${item.title}" for ${durationDays} day(s).`,
+          },
+          {
+            user: claimed.owner,
+            amount: borrowCost,
+            type: 'lending_reward',
+            balanceBefore: ownerBalanceBefore,
+            balanceAfter: ownerBalanceAfter,
+            loan: createdLoan._id,
+            description: `Lent out "${item.title}" for ${durationDays} day(s).`,
+          },
+        ],
+        { session }
+      );
+
+      return { loan: createdLoan, borrowCost, ownerId: claimed.owner, borrowerId: claimed.borrower };
     });
   } catch (err) {
     if (err instanceof ApiError) throw err;
@@ -306,12 +389,42 @@ const approveBorrowRequest = asyncHandler(async (req, res) => {
     throw err;
   }
 
+  const { loan, borrowCost, ownerId, borrowerId } = result;
   await loan.populate(POPULATE_FIELDS);
+
+  // Notifications are side effects of an already-committed
+  // transaction — sent afterward, never inside it, and never allowed
+  // to turn a successful approval into a failed response (safeNotify
+  // swallows its own errors).
+  await safeNotify({
+    recipient: borrowerId,
+    type: 'borrow_request_approved',
+    title: 'Borrow request approved',
+    message: 'Your borrow request was approved.',
+    relatedEntityType: 'Loan',
+    relatedEntityId: loan._id,
+  });
+  await safeNotify({
+    recipient: borrowerId,
+    type: 'credit_spent',
+    title: 'Credits spent',
+    message: `${borrowCost} credit(s) were deducted for this borrowing.`,
+    relatedEntityType: 'Loan',
+    relatedEntityId: loan._id,
+  });
+  await safeNotify({
+    recipient: ownerId,
+    type: 'credit_received',
+    title: 'Credits earned',
+    message: `You earned ${borrowCost} credit(s) for lending your item.`,
+    relatedEntityType: 'Loan',
+    relatedEntityId: loan._id,
+  });
 
   return res.status(200).json({
     success: true,
     message: 'Borrow request approved. A loan has been created.',
-    data: { loan: toPublicLoan(loan) },
+    data: { loan: toPublicLoan(loan), creditsCharged: borrowCost },
   });
 });
 
@@ -340,6 +453,15 @@ const rejectBorrowRequest = asyncHandler(async (req, res) => {
   await request.save();
   await request.populate(POPULATE_FIELDS);
 
+  await safeNotify({
+    recipient: request.borrower._id || request.borrower,
+    type: 'borrow_request_rejected',
+    title: 'Borrow request rejected',
+    message: `Your borrow request was rejected: ${request.rejectionReason}`,
+    relatedEntityType: 'BorrowRequest',
+    relatedEntityId: request._id,
+  });
+
   return res.status(200).json({
     success: true,
     message: 'Borrow request rejected.',
@@ -367,6 +489,15 @@ const cancelBorrowRequest = asyncHandler(async (req, res) => {
   request.status = 'cancelled';
   await request.save();
   await request.populate(POPULATE_FIELDS);
+
+  await safeNotify({
+    recipient: request.owner._id || request.owner,
+    type: 'borrow_request_cancelled',
+    title: 'Borrow request cancelled',
+    message: `${req.user.name} cancelled their borrow request.`,
+    relatedEntityType: 'BorrowRequest',
+    relatedEntityId: request._id,
+  });
 
   return res.status(200).json({
     success: true,

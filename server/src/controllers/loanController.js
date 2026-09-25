@@ -3,6 +3,7 @@ const Loan = require('../models/Loan');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { parsePagination, parseSort, parseStatusFilter } = require('../utils/listQueryHelpers');
+const { safeNotify } = require('../services/notificationService');
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -203,6 +204,17 @@ const returnLoan = asyncHandler(async (req, res) => {
   loan.actualReturnDate = new Date();
   await loan.save();
   await loan.populate(POPULATE_FIELDS);
+
+  // Per the brief, only the owner is notified on return (the borrower
+  // is the one performing — or at least aware of — the action).
+  await safeNotify({
+    recipient: loan.owner._id || loan.owner,
+    type: 'item_returned',
+    title: 'Item returned',
+    message: 'Your item has been marked as returned.',
+    relatedEntityType: 'Loan',
+    relatedEntityId: loan._id,
+  });
 
   return res.status(200).json({
     success: true,
