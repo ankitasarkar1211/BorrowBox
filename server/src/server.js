@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const app = require('./app');
 const connectDB = require('./config/db');
+const startReminderSchedule = require('./config/scheduler');
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,6 +12,8 @@ const startServer = async () => {
   const server = app.listen(PORT, () => {
     console.log(`BorrowBox API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
+
+  startReminderSchedule();
 
   // Fail loudly instead of leaving the process in a broken state.
   process.on('unhandledRejection', (err) => {

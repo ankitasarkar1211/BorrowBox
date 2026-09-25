@@ -5,6 +5,9 @@ const authRoutes = require('./routes/authRoutes');
 const itemRoutes = require('./routes/itemRoutes');
 const borrowRequestRoutes = require('./routes/borrowRequestRoutes');
 const loanRoutes = require('./routes/loanRoutes');
+const creditRoutes = require('./routes/creditRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -38,6 +41,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/borrow-requests', borrowRequestRoutes);
 app.use('/api/loans', loanRoutes);
+app.use('/api/credits', creditRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // --- 404 + centralized error handling (must be last) ---
 app.use(notFound);
