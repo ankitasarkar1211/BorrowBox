@@ -373,7 +373,7 @@ const approveBorrowRequest = asyncHandler(async (req, res) => {
             description: `Lent out "${item.title}" for ${durationDays} day(s).`,
           },
         ],
-        { session }
+        { session, ordered: true }
       );
 
       return { loan: createdLoan, borrowCost, ownerId: claimed.owner, borrowerId: claimed.borrower };
