@@ -27,6 +27,17 @@ const normalizeToUTCDate = (input) => {
 const todayUTC = () => normalizeToUTCDate(new Date());
 
 /**
+ * Whole-day duration between two already-normalized (UTC midnight)
+ * Date objects. Used by the borrowing credit calculation
+ * (borrowCost = item.creditCost × durationDays) so that module and
+ * this one can never disagree on what "N days" means. Safe to call
+ * only with dates that have already passed validateBorrowDates (so
+ * endDate > startDate and both are UTC-midnight-aligned) — the result
+ * is otherwise not guaranteed to be a whole number.
+ */
+const getDurationDays = (startDate, endDate) => Math.round((endDate - startDate) / MS_PER_DAY);
+
+/**
  * Validates and normalizes startDate/endDate from a request body or
  * query object. Returns { errors, startDate, endDate }; startDate and
  * endDate are normalized Date objects when valid, otherwise null.
@@ -76,4 +87,4 @@ const validateBorrowDates = (source) => {
   return { errors: [], startDate, endDate };
 };
 
-module.exports = { validateBorrowDates, normalizeToUTCDate, MAX_BORROW_DAYS };
+module.exports = { validateBorrowDates, normalizeToUTCDate, getDurationDays, MAX_BORROW_DAYS };

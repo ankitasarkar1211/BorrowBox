@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const CreditTransaction = require('../models/CreditTransaction');
 const generateToken = require('../utils/generateToken');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
@@ -47,6 +48,30 @@ const register = asyncHandler(async (req, res) => {
     communityId: communityId.trim(),
     avatarUrl: avatarUrl || null,
   });
+
+  // Record the welcome balance the User schema's `creditsBalance`
+  // default already granted, so it shows up in the user's credit
+  // history (GET /api/credits/transactions) rather than appearing as
+  // an unexplained starting balance. Guarded against duplicates (in
+  // case this ever runs twice for the same user id) and never allowed
+  // to fail registration itself — this is bookkeeping for an action
+  // that has already succeeded, not a precondition for it.
+  try {
+    const alreadyHasBonus = await CreditTransaction.exists({ user: user._id, type: 'signup_bonus' });
+    if (!alreadyHasBonus) {
+      await CreditTransaction.create({
+        user: user._id,
+        amount: user.creditsBalance,
+        type: 'signup_bonus',
+        balanceBefore: 0,
+        balanceAfter: user.creditsBalance,
+        description: 'Welcome bonus for joining BorrowBox.',
+      });
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to record signup_bonus transaction:', err.message);
+  }
 
   const token = generateToken(user._id);
 
