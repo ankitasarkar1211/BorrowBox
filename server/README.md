@@ -1,7 +1,7 @@
-# BorrowBox — Backend (Foundation + Auth + Items + Borrowing + Credits/Reviews/Notifications)
+# BorrowBox — Backend (Complete API)
 
 A community item-sharing platform for smarter consumption (SDG 12).
-This backend now implements four modules:
+This is the complete backend, built across five modules:
 
 1. **Foundation + Authentication** — register, login, `me`.
 2. **Item Management + Discovery** — create/read/update/delete
@@ -14,9 +14,14 @@ This backend now implements four modules:
    post-loan reviews with on-demand reputation, in-app notifications
    across every workflow transition, and a daily due-soon/overdue
    reminder scan.
+5. **AI Recommendations, Admin Module, Security Audit & Seed Data** —
+   a rule-based Borrow/Rent/Buy recommendation service, an admin
+   module for user/item moderation and platform stats, a final
+   security audit (two genuine fixes made — see §5.3), and a seed
+   script for realistic local demo data.
 
-AI recommendations are intentionally out of scope and will be added in
-the final module.
+No further major backend features are planned — this is the final
+backend prompt for this project.
 
 ---
 
@@ -39,58 +44,94 @@ the final module.
 
 ```
 server/
+├── scripts/
+│   └── seed.js                      # (new) npm run seed — idempotent demo data
 ├── src/
 │   ├── config/
 │   │   ├── db.js                    # MongoDB connection
-│   │   └── scheduler.js             # daily return-reminder cron job (new)
+│   │   └── scheduler.js             # daily return-reminder cron job
 │   ├── controllers/
-│   │   ├── authController.js        # register, login, me (+ signup_bonus transaction)
-│   │   ├── itemController.js        # create/list/get/update/delete items + availability check
-│   │   ├── borrowRequestController.js  # + credit deduction/reward, notifications
-│   │   ├── loanController.js        # + return notification
-│   │   ├── creditController.js      # (new)
-│   │   ├── reviewController.js      # (new)
-│   │   └── notificationController.js   # (new)
+│   │   ├── authController.js        # register, login, me (+ signup_bonus, isActive check)
+│   │   ├── itemController.js        # + active-loan/pending-request guard on delete (new)
+│   │   ├── borrowRequestController.js  # credit deduction/reward, notifications
+│   │   ├── loanController.js        # + atomic return claim (new, security fix)
+│   │   ├── creditController.js
+│   │   ├── reviewController.js
+│   │   ├── notificationController.js
+│   │   ├── recommendationController.js  # (new)
+│   │   └── adminController.js       # (new)
 │   ├── middleware/
-│   │   ├── auth.js                  # protect, adminOnly
+│   │   ├── auth.js                  # protect (+ isActive check, new), adminOnly
 │   │   └── errorHandler.js          # notFound, errorHandler
 │   ├── models/
-│   │   ├── User.js
+│   │   ├── User.js                  # + isActive field (new)
 │   │   ├── Item.js                  # + bookingVersion field
 │   │   ├── BorrowRequest.js
 │   │   ├── Loan.js
-│   │   ├── CreditTransaction.js     # (new)
-│   │   ├── Review.js                # (new)
-│   │   └── Notification.js          # (new)
+│   │   ├── CreditTransaction.js
+│   │   ├── Review.js
+│   │   └── Notification.js
 │   ├── routes/
 │   │   ├── authRoutes.js
-│   │   ├── itemRoutes.js            # + GET /:id/availability
+│   │   ├── itemRoutes.js
 │   │   ├── borrowRequestRoutes.js
 │   │   ├── loanRoutes.js
-│   │   ├── creditRoutes.js          # (new)
-│   │   ├── reviewRoutes.js          # (new)
-│   │   └── notificationRoutes.js    # (new)
+│   │   ├── creditRoutes.js
+│   │   ├── reviewRoutes.js
+│   │   ├── notificationRoutes.js
+│   │   ├── recommendationRoutes.js  # (new)
+│   │   └── adminRoutes.js           # (new)
 │   ├── services/
-│   │   ├── notificationService.js   # (new) createNotification, safeNotify
-│   │   └── reminderService.js       # (new) runReturnReminders
+│   │   ├── notificationService.js
+│   │   ├── reminderService.js
+│   │   └── recommendationService.js # (new) pure rule-based Borrow/Rent/Buy logic
 │   ├── utils/
 │   │   ├── ApiError.js
 │   │   ├── asyncHandler.js
 │   │   ├── generateToken.js
-│   │   ├── validators.js            # auth request validation
-│   │   ├── itemValidators.js        # item request + list-query validation
-│   │   ├── dateValidators.js        # + getDurationDays (new export)
-│   │   ├── availability.js          # overlap / reserving-loan queries
-│   │   ├── withTransaction.js       # MongoDB transaction retry helper
-│   │   ├── listQueryHelpers.js      # shared pagination/sort/status parsing
+│   │   ├── validators.js
+│   │   ├── itemValidators.js        # parseListQuery reused by the admin item list (new)
+│   │   ├── dateValidators.js
+│   │   ├── availability.js
+│   │   ├── withTransaction.js
+│   │   ├── listQueryHelpers.js
 │   │   └── borrowRequestValidators.js
-│   ├── app.js                       # Express app (middleware + routes)
-│   └── server.js                    # entry point (+ starts reminder schedule)
+│   ├── app.js                       # + recommendation/admin routers (new)
+│   └── server.js
 ├── .env.example
 ├── .gitignore
-├── package.json                     # + node-cron
+├── package.json                     # + "seed" script (new)
 └── README.md
 ```
+
+### What changed in the final module (AI, Admin, Security, Seed)
+
+**New files:**
+`src/services/recommendationService.js`, `src/controllers/recommendationController.js`,
+`src/routes/recommendationRoutes.js`, `src/controllers/adminController.js`,
+`src/routes/adminRoutes.js`, `scripts/seed.js`.
+
+**Modified files:**
+- `src/models/User.js` — added one new field, `isActive` (`Boolean`,
+  default `true`). See §5.2.
+- `src/middleware/auth.js` — `protect` now also rejects (`403`) a
+  deactivated user, even with an otherwise-valid JWT.
+- `src/controllers/authController.js` — `login` now also checks
+  `isActive` (clearer error at login time, before a token is even
+  issued); `toPublicUser` now includes `isActive` in `/me` responses.
+  Registration's own logic is unchanged.
+- `src/controllers/loanController.js` — `returnLoan`'s status check +
+  save was replaced with an atomic `findOneAndUpdate` claim (security
+  fix — see §5.3). Every other function in the file is unchanged.
+- `src/controllers/itemController.js` — `deleteItem` gained an
+  active-loan/pending-request guard (security fix — see §5.3), and two
+  new `require`s (`Loan`, `BorrowRequest`) to support it. Every other
+  function is unchanged.
+- `src/app.js` — added two `require`s and two `app.use(...)` lines for
+  the new routers.
+- `package.json` — added the `"seed": "node scripts/seed.js"` script.
+  No new dependency: the AI recommendation service is pure JavaScript,
+  and the admin module reuses the existing `adminOnly` middleware.
 
 ### What changed in the borrowing workflow module
 
@@ -161,7 +202,7 @@ server/
 - `src/server.js` — added one `require` (`./config/scheduler`) and one
   call (`startReminderSchedule()`) right after the server starts
   listening. Connection and shutdown logic unchanged.
-- `package.json` — added one dependency, `node-cron` (§6).
+- `package.json` — added one dependency, `node-cron` (§7).
 
 ## 3. Borrowing workflow
 
@@ -543,10 +584,222 @@ the existing state machine (§3.3) is untouched.
 00:05 UTC via `node-cron`, started from `server.js` right after the
 server begins listening. For testing without waiting for the
 schedule, `POST /api/notifications/run-reminders` (admin-only — see
-§11.24 for how to make a test account an admin) runs the exact same
+§12.24 for how to make a test account an admin) runs the exact same
 function on demand and returns a summary of what it did.
 
-## 5. Prerequisites
+## 5. AI Recommendations, Admin Module, Security Audit & Seed Data
+
+### 5.1 AI Borrow / Rent / Buy recommendation
+
+`POST /api/recommendations` — a lightweight, fully **rule-based**
+service (`src/services/recommendationService.js`). No ML model, no AI
+API calls, no new dependency: it's a pure function that takes an
+item's existing `creditCost`/`purchasePrice`/`rentalPricePerDay`/
+`availabilityStatus` plus two inputs (`expectedDaysOfUse`,
+`expectedUsesPerMonth`) and returns a recommendation with its full
+reasoning attached — every output can be traced back to one of a
+handful of named, tunable constants at the top of the file.
+
+**Request:**
+```json
+{ "itemId": "...", "expectedDaysOfUse": 3, "expectedUsesPerMonth": 10 }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "itemId": "...",
+    "itemTitle": "Cordless Drill",
+    "recommendation": "BUY",
+    "reason": "At 10 uses/month, buying would pay for itself in about 1 month(s)...",
+    "available": true,
+    "costComparison": {
+      "borrowCost": 6, "borrowCostPerMonth": 60,
+      "rentalCostPerUse": 300, "rentalCostPerMonth": 3000,
+      "purchaseCost": 500
+    },
+    "factors": ["item.availabilityStatus is \"available\"", "expectedUsesPerMonth (10) >= 8", "..."],
+    "inputs": { "expectedDaysOfUse": 3, "expectedUsesPerMonth": 10 }
+  }
+}
+```
+
+**Honest limitation, stated up front:** `creditCost` is in this
+platform's internal Borrow Credits (non-monetary, earned by lending),
+while `purchasePrice`/`rentalPricePerDay` are presumably real currency.
+This service does **not** invent an exchange rate to collapse them into
+one number — that would be a fabricated conversion. All three costs are
+reported side by side; the decision logic reasons about them as
+separate signals.
+
+**Decision rules (in order):**
+1. **Item unavailable to borrow right now:** recommends `BUY` if
+   `purchasePrice` exists and `expectedUsesPerMonth >= 4`; else `RENT`
+   if a rental price exists; else `BUY` if only a purchase price
+   exists; else falls back to `BORROW` with `available: false` and an
+   explanatory reason (no price data at all to act on).
+2. **Item available, long expected use** (`expectedDaysOfUse >= 20` —
+   close to this platform's own `MAX_BORROW_DAYS` of 30) **and a
+   purchase price exists:** recommends `BUY` — a need this long-term
+   starts to look like ownership regardless of cost.
+3. **Item available, frequent use** (`expectedUsesPerMonth >= 8`) **and
+   a purchase price exists:** estimates a buy break-even in months
+   (`purchasePrice ÷ monthly rental-or-borrow cost`); recommends `BUY`
+   if that's ≤ 3 months, otherwise falls through to rule 4.
+4. **Otherwise:** recommends `BORROW` — whenever the item is actually
+   available, borrowing costs Borrow Credits, not money, making it the
+   default best option for typical usage.
+
+Community-scoped exactly like every item-touching endpoint (`404` for
+an item outside the caller's community). Nothing is persisted — a
+recommendation is fully reproducible from its inputs, so storing one
+would only ever be a cache, never a source of truth.
+
+### 5.2 Admin module
+
+Every route under `/api/admin` requires **both** `protect` and the
+existing `adminOnly` middleware — a normal, active, authenticated user
+gets a plain `403` from all of them, same as any other `adminOnly`
+route in this codebase.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/admin/users` | List users — paginated, searchable by name/email (regex-escaped — see §5.3), filterable by `communityId`, `isActive`, `role` |
+| `GET /api/admin/users/:id` | One user's safe details (password never included) |
+| `PATCH /api/admin/users/:id/status` | `{ "isActive": true \| false }` — activate/deactivate. An admin cannot deactivate their own account (self-lockout guard) |
+| `GET /api/admin/items` | List items **across every community** — the one deliberate exception to community scoping in this codebase, safe specifically because it's `adminOnly` |
+| `DELETE /api/admin/items/:id` | Remove an item — blocked with `409` if it has an active loan or a pending request (see §5.3) |
+| `GET /api/admin/stats` | Platform counters: `totalUsers`, `activeUsers`, `inactiveUsers`, `totalItems`, `totalBorrowRequests`, `activeLoans`, `returnedLoans`, `totalReviews`, `totalCreditsInCirculation` (a live aggregate sum, never cached) |
+
+**`isActive` (new `User` field, default `true`):** deactivating a user
+blocks them from taking **any** further authenticated action — enforced
+in the `protect` middleware (checked on every request, not just at
+login, since a still-valid JWT issued before deactivation must also
+stop working) and again at login itself for a clearer error message.
+Deactivation never touches historical data: a deactivated user's past
+items, loans, reviews, and credit transactions all remain exactly as
+they were.
+
+Registration still cannot create an admin account (`role` was never
+read from the registration body, before or after this module) — the
+only way to get an admin account is a direct database write (see
+§12.24) or, in the seed script (§5.5), a deliberate one-time exception
+made in a script that never runs through the API at all.
+
+### 5.3 Security audit — findings and fixes
+
+Two genuine issues were found and fixed; everything else audited held
+up as already correct.
+
+**Fixed — duplicate return race (`PATCH /api/loans/:id/return`):** the
+existing code read the loan, checked its status, then saved — two
+near-simultaneous return calls (e.g. borrower and owner both tapping
+"return" at once) could both pass the status check before either write
+landed, both set `actualReturnDate`, and both trigger a notification.
+Fixed with the same atomic `findOneAndUpdate({ _id, status: 'active' },
+...)` claim pattern `approveBorrowRequest` already used for the
+equivalent double-approval race — the second concurrent call now
+reliably gets `409`.
+
+**Fixed — item deletion could orphan an active loan:** the owner's
+`DELETE /api/items/:id` had no check preventing deletion of an item
+someone currently has on loan or is waiting on a pending request for.
+Added the same active-loan/pending-request guard now used by the admin
+item-removal endpoint (§5.2) — historical (returned) loans and resolved
+(non-pending) requests still don't block deletion, since every
+`toPublic*` shaping function in this codebase already tolerates a
+since-deleted reference gracefully (they all check truthiness before
+reading a populated field).
+
+**Verified, not changed (already correct):**
+- **ID/role/community spoofing:** `owner`, `communityId`, `role`,
+  `creditsBalance`, `isActive`, `reviewer`, `reviewee`, and every
+  `borrower`/`owner` pairing are derived server-side everywhere —
+  confirmed by grepping every controller for `req.body` destructuring
+  of these field names; the only legitimate hits are registration's
+  own `communityId` (a new user choosing their own community) and the
+  admin status endpoint's own `isActive` (its entire purpose, and
+  self-locked).
+- **Mass assignment:** no controller spreads `req.body` directly into
+  a `.create()`/`.save()` call anywhere (`updateItem` explicitly
+  destructures `owner`/`communityId` out before applying an allowlist).
+- **Admin privilege escalation:** `adminOnly` checks `req.user.role`
+  read fresh from the database on every request, never from the JWT
+  payload or client input.
+- **Invalid ObjectIds / unsafe queries:** every `:id`-taking endpoint
+  validates with `mongoose.Types.ObjectId.isValid()` before querying.
+  The new admin user/item search now escapes regex metacharacters in
+  the `search` term (`escapeRegex` in `adminController.js`) before
+  building a `$regex` filter — the one new free-text search surface
+  this module adds.
+- **Duplicate operations:** approval (atomic claim + unique
+  `Loan.borrowRequest` index), reviews (unique `{loan, reviewer}`
+  index), and now returns (atomic claim, per the fix above) are all
+  covered.
+- **Inconsistent status transitions:** every status-changing endpoint
+  checks the current status before transitioning (`pending` →
+  approve/reject/cancel; `active` → returned) and nothing exposes a
+  generic status-setting endpoint (no `PUT /api/loans/:id`, no
+  `PUT /api/borrow-requests/:id`).
+- **Sensitive data exposure:** password is `select: false` on the
+  schema and never explicitly selected by the admin controller or any
+  other controller except login (which needs it to compare, and never
+  returns it).
+
+### 5.4 Edge cases — status
+
+All items from the brief's edge-case list were already covered by
+existing modules except the two fixed above; see the cross-references:
+borrowing own item (§3, `createBorrowRequest`), cross-community access
+(404 convention throughout), duplicate requests/approvals (§3.6),
+overlapping loans + boundary dates (§3.5), invalid/past dates (§3.4),
+insufficient credits (§4.2), duplicate/self reviews (§4.4),
+review-before-return (§4.4), unauthorized notifications (§4.5),
+unauthorized admin access (§5.2), inactive user actions (§5.2, via
+`protect`), deleted item with historical loans (§5.3, this module),
+invalid ids (`isValidObjectId` throughout), invalid pagination/sorting
+(clamped in `listQueryHelpers.js`/`itemValidators.js` since the very
+first module).
+
+### 5.5 Seed data
+
+`npm run seed` (`scripts/seed.js`) populates realistic demo data across
+**two communities** — bypassing the HTTP API entirely (it writes
+straight to the models) but reusing the real `User` model, so demo
+passwords go through the exact same bcrypt hashing the API itself uses.
+
+**Idempotent:** checks whether `admin@borrowbox.dev` already exists
+first; if so, it prints a message and exits without creating or
+changing anything. Safe to run `npm run seed` more than once.
+
+**What it creates:** 6 users (1 admin) split across `IEM-KOLKATA` and
+`STANFORD-DORM`; 5 items (including one manually paused
+`unavailable`, to demo the recommendation service's unavailable-item
+branch); 4 borrow requests in community A covering every status
+(a returned loan, a pending request, a rejected request, a cancelled
+request); 1 active loan in community B; a full, balanced credit
+transaction trail (signup bonuses plus the borrow-spend/lending-reward
+pair for each approved loan — computed with the same `creditCost ×
+days` math `approveBorrowRequest` uses); 2 reviews on the returned
+loan; and 10 representative notifications.
+
+**Demo credentials — local development only:**
+
+| Email | Password | Role | Community |
+|---|---|---|---|
+| admin@borrowbox.dev | Password123 | admin | IEM-KOLKATA |
+| alice@borrowbox.dev | Password123 | user | IEM-KOLKATA |
+| bob@borrowbox.dev | Password123 | user | IEM-KOLKATA |
+| carol@borrowbox.dev | Password123 | user | IEM-KOLKATA |
+| dave@borrowbox.dev | Password123 | user | STANFORD-DORM |
+| erin@borrowbox.dev | Password123 | user | STANFORD-DORM |
+
+Never reuse these credentials or run this script against a production
+database — they're printed in plaintext by design, for local dev only.
+
+## 6. Prerequisites
 
 - Node.js **v18 LTS or v20 LTS** (recommended — `bcryptjs`, `mongoose`,
   and `express` all support these). Check with:
@@ -554,15 +807,18 @@ function on demand and returns a summary of what it did.
   node -v
   ```
 - npm (comes with Node.js)
-- A MongoDB Atlas account (free tier is enough) — see Section 7.
+- A MongoDB Atlas account (free tier is enough) — see Section 8.
 - [Postman](https://www.postman.com/downloads/) for API testing.
 
-## 6. Install dependencies
+## 7. Install dependencies
 
-**One new package for this module: `node-cron`** (used by
-`src/config/scheduler.js` to run the daily return-reminder job — see
-§4.6). Everything else, including MongoDB transactions/sessions used
-by the borrowing workflow module, was already installed.
+**No new packages for the final module** (AI recommendations, admin,
+security fixes, seed script): the recommendation service is pure
+JavaScript with no dependency at all, and the admin module reuses the
+existing `adminOnly` middleware. The one package installed for the
+*previous* module remains: **`node-cron`** (used by
+`src/config/scheduler.js` — see §4.6). Everything else was already
+installed.
 
 From inside the `server/` folder:
 
@@ -577,7 +833,7 @@ This installs everything listed in `package.json`
 (`express`, `mongoose`, `jsonwebtoken`, `bcryptjs`, `dotenv`, `cors`,
 `node-cron`) plus `nodemon` as a dev dependency.
 
-## 7. Set up MongoDB Atlas
+## 8. Set up MongoDB Atlas
 
 1. Go to https://www.mongodb.com/cloud/atlas/register and create a
    free account (or log in).
@@ -599,13 +855,13 @@ This installs everything listed in `package.json`
    created, and add a database name before the `?`, e.g.
    `.../borrowbox?retryWrites=true...`.
 
-## 8. Configure environment variables
+## 9. Configure environment variables
 
-**No new environment variables are required for this module either**
-(credits, reviews, notifications, and reminders all reuse the same
-`MONGO_URI` and `JWT_SECRET`). The replica-set requirement noted for
-the borrowing workflow module still applies — see §3.6 and §12 if
-you're running MongoDB locally as a standalone instance.
+**No new environment variables for the final module either** — the AI
+recommendation service, admin module, and seed script all reuse
+`MONGO_URI` and `JWT_SECRET`. The replica-set requirement noted for the
+borrowing workflow module still applies — see §3.6 and §13 if you're
+running MongoDB locally as a standalone instance.
 
 Copy the example file and fill it in:
 
@@ -626,7 +882,7 @@ CLIENT_ORIGIN=http://localhost:5173
 
 Never commit `.env` — it's already in `.gitignore`.
 
-## 9. Run the server
+## 10. Run the server
 
 Development (auto-restarts on file changes):
 
@@ -647,7 +903,17 @@ MongoDB connected: cluster0-shard-...mongodb.net
 BorrowBox API running in development mode on port 5000
 ```
 
-## 10. API endpoint summary
+**Optional — load demo data** (see §5.5 for exactly what this creates
+and the demo login credentials):
+
+```bash
+npm run seed
+```
+
+Safe to run more than once — it detects existing seed data and skips
+rather than duplicating it.
+
+## 11. API endpoint summary
 
 | Method | Endpoint             | Access  | Description                        |
 |--------|-----------------------|---------|-------------------------------------|
@@ -683,8 +949,15 @@ BorrowBox API running in development mode on port 5000
 | PATCH  | `/api/notifications/:id/read` | Private | Mark one notification read |
 | PATCH  | `/api/notifications/read-all` | Private | Mark all your notifications read |
 | POST   | `/api/notifications/run-reminders` | Private (admin only) | Manually run the due-soon/overdue reminder scan |
+| POST   | `/api/recommendations` | Private | Rule-based Borrow/Rent/Buy recommendation for one item |
+| GET    | `/api/admin/stats` | Private (admin only) | Platform-wide counters |
+| GET    | `/api/admin/users` | Private (admin only) | List/search users across all communities |
+| GET    | `/api/admin/users/:id` | Private (admin only) | One user's safe details |
+| PATCH  | `/api/admin/users/:id/status` | Private (admin only) | Activate/deactivate a user |
+| GET    | `/api/admin/items` | Private (admin only) | List/search items across all communities |
+| DELETE | `/api/admin/items/:id` | Private (admin only) | Remove an item (blocked if it has an active loan or pending request) |
 
-### 10.1 Item fields
+### 11.1 Item fields
 
 | Field | Type | Notes |
 |---|---|---|
@@ -700,7 +973,7 @@ BorrowBox API running in development mode on port 5000
 | `rentalPricePerDay` | number \| null | optional, >= 0 |
 | `availabilityStatus` | enum | `available`, `requested`, `borrowed`, `unavailable` — a manual owner-controlled pause, independent of dates. The borrowing module (§3.7) never sets `requested`/`borrowed`/`unavailable` automatically; date-based availability always comes from Loan records, not this field. |
 
-### 10.2 List query parameters (`GET /api/items`)
+### 11.2 List query parameters (`GET /api/items`)
 
 | Param | Type | Notes |
 |---|---|---|
@@ -714,7 +987,7 @@ BorrowBox API running in development mode on port 5000
 Community scoping is **always** applied from the logged-in user and
 cannot be overridden by a query parameter.
 
-### 10.3 Borrow request list query parameters (`/my`, `/received`)
+### 11.3 Borrow request list query parameters (`/my`, `/received`)
 
 | Param | Type | Notes |
 |---|---|---|
@@ -723,7 +996,7 @@ cannot be overridden by a query parameter.
 | `limit` | integer | default `10`, capped at `50` |
 | `sort` | string | one of `createdAt`, `startDate`, `endDate`; prefix with `-` for descending (default `-createdAt`) |
 
-### 10.4 Loan list query parameters (`/my`, `/lending`)
+### 11.4 Loan list query parameters (`/my`, `/lending`)
 
 | Param | Type | Notes |
 |---|---|---|
@@ -732,7 +1005,7 @@ cannot be overridden by a query parameter.
 | `limit` | integer | default `10`, capped at `50` |
 | `sort` | string | one of `createdAt`, `startDate`, `endDate`; prefix with `-` for descending (default `-createdAt`) |
 
-### 10.5 Availability check (`GET /api/items/:id/availability`)
+### 11.5 Availability check (`GET /api/items/:id/availability`)
 
 Query params: `startDate`, `endDate` (both required, same validation
 rules as §3.4). Response:
@@ -745,7 +1018,7 @@ If `available` is `false`, an additional `reason` field is included:
 `"unavailable"` (owner has manually paused the item) or
 `"date_conflict"` (overlaps an existing reservation).
 
-### 10.6 Credit transaction list query parameters (`GET /api/credits/transactions`)
+### 11.6 Credit transaction list query parameters (`GET /api/credits/transactions`)
 
 | Param | Type | Notes |
 |---|---|---|
@@ -754,7 +1027,7 @@ If `available` is `false`, an additional `reason` field is included:
 | `limit` | integer | default `10`, capped at `50` |
 | `sort` | string | only `createdAt` is supported; prefix with `-` for descending (default `-createdAt`) |
 
-### 10.7 Review fields (`POST /api/reviews`)
+### 11.7 Review fields (`POST /api/reviews`)
 
 | Field | Type | Notes |
 |---|---|---|
@@ -767,7 +1040,7 @@ If `available` is `false`, an additional `reason` field is included:
 `{ averageRating, totalReviews, completedBorrowings, completedLendings }`
 — `averageRating` is `null` (not `0`) when `totalReviews` is `0`.
 
-### 10.8 Notification list query parameters (`GET /api/notifications`)
+### 11.8 Notification list query parameters (`GET /api/notifications`)
 
 | Param | Type | Notes |
 |---|---|---|
@@ -775,11 +1048,40 @@ If `available` is `false`, an additional `reason` field is included:
 | `page` | integer | default `1` |
 | `limit` | integer | default `10`, capped at `50` |
 
-## 11. Postman testing guide
+### 11.9 Recommendation request body (`POST /api/recommendations`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `itemId` | string | required; must be in the caller's own community |
+| `expectedDaysOfUse` | number | required, > 0 |
+| `expectedUsesPerMonth` | number | required, >= 0 |
+
+See §5.1 for the full response shape and decision rules.
+
+### 11.10 Admin user list query parameters (`GET /api/admin/users`)
+
+| Param | Type | Notes |
+|---|---|---|
+| `search` | string | matches `name` OR `email`, case-insensitive substring |
+| `communityId` | string | exact match |
+| `isActive` | `"true"` \| `"false"` | |
+| `role` | `"user"` \| `"admin"` | |
+| `page` / `limit` | integer | default `1` / `10`, `limit` capped at `50` |
+| `sort` | string | one of `createdAt`, `name`, `email`; prefix with `-` for descending |
+
+### 11.11 Admin item list query parameters (`GET /api/admin/items`)
+
+Same as §11.2 (`search`, `category`, `condition`, `page`, `limit`,
+`sort`), plus an optional `communityId` filter — the only item list
+endpoint in the whole API where a community filter makes sense, since
+this is the only one that isn't already scoped to the caller's own
+community.
+
+## 12. Postman testing guide
 
 Base URL: `http://localhost:5000`
 
-### 11.1 Health check
+### 12.1 Health check
 
 - **Method:** GET
 - **URL:** `/api/health`
@@ -791,7 +1093,7 @@ Base URL: `http://localhost:5000`
   { "success": true, "message": "BorrowBox API is healthy.", "timestamp": "..." }
   ```
 
-### 11.2 Register — POST `/api/auth/register`
+### 12.2 Register — POST `/api/auth/register`
 
 - **Headers:** `Content-Type: application/json`
 - **Body (raw JSON):**
@@ -824,7 +1126,7 @@ Base URL: `http://localhost:5000`
 - Invalid email format (e.g. `"not-an-email"`) → `400`.
 - Missing `communityId` → `400`.
 
-### 11.3 Login — POST `/api/auth/login`
+### 12.3 Login — POST `/api/auth/login`
 
 - **Headers:** `Content-Type: application/json`
 - **Body:**
@@ -840,7 +1142,7 @@ Base URL: `http://localhost:5000`
   email enumeration).
 - Missing fields → `400`.
 
-### 11.4 Get current user — GET `/api/auth/me`
+### 12.4 Get current user — GET `/api/auth/me`
 
 - **Headers:**
   - `Authorization: Bearer <token from register or login>`
@@ -863,7 +1165,7 @@ Base URL: `http://localhost:5000`
 - Valid token but the user was deleted from the DB afterward → `401`
   "Not authorized. User no longer exists."
 
-### 11.5 Items — setup
+### 12.5 Items — setup
 
 For the item tests below you need **two** logged-in users, ideally in
 different communities:
@@ -877,7 +1179,7 @@ different communities:
 
 For every item request below, set header `Authorization: Bearer <token>`.
 
-### 11.6 Create item — POST `/api/items`
+### 12.6 Create item — POST `/api/items`
 
 - **Headers:** `Content-Type: application/json`, `Authorization: Bearer <tokenA>`
 - **Body:**
@@ -904,7 +1206,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - Body includes `"owner": "<some other user id>"` → ignored; the
   created item's `owner` is still User A (proves ownership can't be spoofed).
 
-### 11.7 Get all items — GET `/api/items`
+### 12.7 Get all items — GET `/api/items`
 
 - **Headers:** `Authorization: Bearer <tokenA>` (or `tokenB`, same community)
 - **Expected status:** `200`
@@ -922,7 +1224,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - `GET /api/items?sort=creditCost` vs `?sort=-creditCost` → ascending vs descending order.
 - `GET /api/items?sort=notarealfield` → `400` validation error.
 
-### 11.8 Get item by ID — GET `/api/items/:id`
+### 12.8 Get item by ID — GET `/api/items/:id`
 
 - As **User A or B** (same community) with `Authorization: Bearer <tokenA-or-B>`:
   `GET /api/items/<itemId>` → `200` with the item.
@@ -932,7 +1234,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - Malformed id, e.g. `GET /api/items/not-a-valid-id` → `400` "Invalid item id."
 - Well-formed but nonexistent id, e.g. `GET /api/items/64f000000000000000000000` → `404`.
 
-### 11.9 Update item — PUT `/api/items/:id`
+### 12.9 Update item — PUT `/api/items/:id`
 
 - As **User A** (the owner): `PUT /api/items/<itemId>` with body
   `{ "creditCost": 4, "availabilityStatus": "unavailable" }` → `200`,
@@ -945,7 +1247,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
   → both silently ignored; the item's real owner/community never changes.
 - Invalid field value, e.g. `"condition": "brand-new"` → `400`.
 
-### 11.10 Delete item — DELETE `/api/items/:id`
+### 12.10 Delete item — DELETE `/api/items/:id`
 
 - As **User B** (not the owner): `DELETE /api/items/<itemId>` → `403`.
 - As **User C** (different community): `DELETE /api/items/<itemId>` → `404`.
@@ -953,7 +1255,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
   `{ "success": true, "message": "Item deleted successfully." }`
 - Repeating the same delete as User A → `404` (already gone).
 
-### 11.11 Availability check — GET `/api/items/:id/availability`
+### 12.11 Availability check — GET `/api/items/:id/availability`
 
 - As **User B**: `GET /api/items/<itemId>/availability?startDate=2026-10-01&endDate=2026-10-05` → `200`, `available: true` (nothing booked yet).
 - Same request as **User C** (different community) → `404`.
@@ -963,7 +1265,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - `startDate` after `endDate` → `400`.
 - A range longer than 30 days → `400`.
 
-### 11.12 Create borrow request — POST `/api/borrow-requests`
+### 12.12 Create borrow request — POST `/api/borrow-requests`
 
 - As **User B**, headers `Authorization: Bearer <tokenB>`:
   ```json
@@ -976,23 +1278,23 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - Body includes `"owner"` or `"communityId"` → both silently ignored (the created request's `owner`/`communityId` still match the item/borrower).
 - Repeat the **same** create request as **User C** (a second borrower, also in User A's community, if you registered one) for **overlapping** dates (e.g. Oct 3–Oct 6) → still `201`. Two *pending* requests for overlapping dates are allowed by design — only *approval* enforces exclusivity (§3.6). Save this as `requestId2`.
 
-### 11.13 Owner sees incoming requests — GET `/api/borrow-requests/received`
+### 12.13 Owner sees incoming requests — GET `/api/borrow-requests/received`
 
 - As **User A**: `200`, both `requestId1` and `requestId2` appear, each `status: "pending"`.
 - As **User B** (not an owner of anything): `200`, `borrowRequests: []`.
 
-### 11.14 Borrower sees their own requests — GET `/api/borrow-requests/my`
+### 12.14 Borrower sees their own requests — GET `/api/borrow-requests/my`
 
 - As **User B**: `200`, includes `requestId1`.
 - `?status=pending` → includes it; `?status=approved` → excludes it (not yet approved).
 
-### 11.15 Authorization checks on the request
+### 12.15 Authorization checks on the request
 
 - As **User B** (the borrower, not the owner): `PATCH /api/borrow-requests/<requestId1>/approve` → `403` "Only the item owner can approve this request."
 - As **User C** (different community): `GET /api/borrow-requests/<requestId1>` → `404`.
 - As **User C**: `POST /api/borrow-requests` for User A's item → `404` (already covered in 10.12, repeated here for the authorization-matrix checklist).
 
-### 11.16 Approve a request → creates a Loan
+### 12.16 Approve a request → creates a Loan
 
 - As **User A**: `PATCH /api/borrow-requests/<requestId1>/approve` → `200`,
   `data.loan` with `status: "active"`, `effectiveStatus` one of
@@ -1001,7 +1303,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - `GET /api/borrow-requests/<requestId1>` → `status: "approved"`.
 - Calling approve **again** on `requestId1` → `409` "This request has already been processed." (or "already been approved", depending on which check fires first) — no second loan is created.
 
-### 11.17 Overlap test — approval must fail for the conflicting request
+### 12.17 Overlap test — approval must fail for the conflicting request
 
 - `requestId2` (Oct 3–Oct 6, overlapping `requestId1`'s Oct 1–Oct 5) is still `pending`.
 - As **User A**: `PATCH /api/borrow-requests/<requestId2>/approve` → `409`
@@ -1016,7 +1318,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
   approve a fourth for Sep 28–Oct 1 (touches the start) → also
   **succeeds**, same reasoning.
 
-### 11.18 Reject a request
+### 12.18 Reject a request
 
 - Submit a new pending request (`requestId3`) from **User B**.
 - As **User A**: `PATCH /api/borrow-requests/<requestId3>/reject` with
@@ -1027,7 +1329,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
   **no** loan.
 - Approving an already-rejected request → `409`.
 
-### 11.19 Cancel a request
+### 12.19 Cancel a request
 
 - Submit a new pending request (`requestId4`) from **User B**.
 - As **User B**: `PATCH /api/borrow-requests/<requestId4>/cancel` →
@@ -1037,7 +1339,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - Cancelling an already-approved request → `409` "Only pending
   requests can be cancelled (this one is approved)."
 
-### 11.20 Loans — my / lending / by id
+### 12.20 Loans — my / lending / by id
 
 - As **User B**: `GET /api/loans/my` → `200`, includes `loanId1`.
 - As **User A**: `GET /api/loans/lending` → `200`, includes `loanId1`.
@@ -1045,7 +1347,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - As **User C**: `GET /api/loans/<loanId1>` → `404`.
 - Malformed loan id → `400`.
 
-### 11.21 Return a loan
+### 12.21 Return a loan
 
 - As **User B** (the borrower): `PATCH /api/loans/<loanId1>/return` →
   `200`, `status: "returned"`, `effectiveStatus: "returned"`,
@@ -1061,7 +1363,7 @@ For every item request below, set header `Authorization: Bearer <token>`.
   found" — this route deliberately does not exist (§21/§23 of the
   brief: no direct status modification through a generic endpoint).
 
-### 11.22 Date validation edge cases (via `POST /api/borrow-requests`)
+### 12.22 Date validation edge cases (via `POST /api/borrow-requests`)
 
 - `startDate` after `endDate` → `400`.
 - `startDate` equal to `endDate` → `400` (same-day not supported).
@@ -1069,14 +1371,14 @@ For every item request below, set header `Authorization: Bearer <token>`.
 - Invalid date string (e.g. `"not-a-date"`) → `400`.
 - A 45-day range → `400` "Borrowing period cannot exceed 30 days."
 
-### 11.23 404 check
+### 12.23 404 check
 
 - **Method:** GET
 - **URL:** `/api/does-not-exist`
 - **Expected status:** `404`
 - **Expected response:** `{ "success": false, "message": "Route not found: GET /api/does-not-exist" }`
 
-### 11.24 Setup — promote a test account to admin
+### 12.24 Setup — promote a test account to admin
 
 `POST /api/notifications/run-reminders` requires `role: 'admin'`, and
 registration always creates `role: 'user'` (see the User model in the
@@ -1091,9 +1393,9 @@ db.users.updateOne({ email: "usera@example.com" }, { $set: { role: "admin" } })
 
 Log in again afterward (or just reuse an existing token — role is read
 fresh from the database on every request via `protect`, not cached in
-the JWT) and use that account for §11.33-11.34 below.
+the JWT) and use that account for §12.33-12.34 below.
 
-### 11.25 Credits — initial balance & signup bonus
+### 12.25 Credits — initial balance & signup bonus
 
 - Register a new user (**User E**). `GET /api/credits/balance` as User
   E → `200`, `{ "creditsBalance": 5 }`.
@@ -1101,14 +1403,14 @@ the JWT) and use that account for §11.33-11.34 below.
   `type: "signup_bonus"`, `amount: 5`, `balanceBefore: 0`,
   `balanceAfter: 5`.
 
-### 11.26 Credits — approval deducts, rewards, and records transactions
+### 12.26 Credits — approval deducts, rewards, and records transactions
 
 Using an item with `creditCost: 2` and a 3-day borrow request (Oct
-1-4, per §11.12's item):
+1-4, per §12.12's item):
 
 - Before approval: note User A's (owner) and User B's (borrower)
   balances via `GET /api/credits/balance`.
-- As User A, approve the request (§11.16). Response now also includes
+- As User A, approve the request (§12.16). Response now also includes
   `data.creditsCharged: 6` (2/day × 3 days) alongside `data.loan`.
 - `GET /api/credits/balance` as User B → decreased by exactly `6`.
 - `GET /api/credits/balance` as User A → increased by exactly `6`.
@@ -1120,7 +1422,7 @@ Using an item with `creditCost: 2` and a 3-day borrow request (Oct
   and a `credit_spent` notification. As User A → includes a
   `credit_received` notification.
 
-### 11.27 Credits — insufficient credits blocks approval entirely
+### 12.27 Credits — insufficient credits blocks approval entirely
 
 - Register a fresh borrower (**User F**, same community as User A) —
   starting balance `5`.
@@ -1135,7 +1437,7 @@ Using an item with `creditCost: 2` and a 3-day borrow request (Oct
   entries; no `Loan` was created (`GET /api/loans/lending` as the
   owner doesn't include it).
 
-### 11.28 Credits — cross-user access denied
+### 12.28 Credits — cross-user access denied
 
 - As User C, `GET /api/credits/transactions` → `200`, but only ever
   contains User C's own transactions — there is no way to pass another
@@ -1143,19 +1445,19 @@ Using an item with `creditCost: 2` and a 3-day borrow request (Oct
   nothing to "deny" as such; the test is simply confirming the
   response never includes another user's rows no matter what.
 
-### 11.29 Reviews — must be returned; both parties can review
+### 12.29 Reviews — must be returned; both parties can review
 
 - Attempt `POST /api/reviews` with `loanId` for a loan that's still
   `"active"` (not yet returned) → `409` "Only completed (returned)
   loans can be reviewed."
-- Return the loan (`PATCH /api/loans/:id/return`, §11.21).
+- Return the loan (`PATCH /api/loans/:id/return`, §12.21).
 - As User B (borrower): `POST /api/reviews` with `{ "loanId": "...",
   "rating": 5, "comment": "Great, reliable lender." }` → `201`,
   `reviewee` is User A.
 - As User A (owner) reviewing the same loan: `{ "loanId": "...",
   "rating": 4 }` → `201`, `reviewee` is User B.
 
-### 11.30 Reviews — duplicates, self/unrelated, reputation
+### 12.30 Reviews — duplicates, self/unrelated, reputation
 
 - User B submitting a **second** review for the same loan → `409`
   (duplicate-key on the unique `{loan, reviewer}` index).
@@ -1171,15 +1473,15 @@ Using an item with `creditCost: 2` and a 3-day borrow request (Oct
 - `GET /api/reviews/loan/<loanId>` as User A or B → `200`, both
   reviews. As User C → `404`.
 
-### 11.31 Notifications — trigger coverage
+### 12.31 Notifications — trigger coverage
 
-Walk back through §11.12-11.21 while checking `GET /api/notifications`
+Walk back through §12.12-12.21 while checking `GET /api/notifications`
 for each actor:
 
 - User B submits a request → User A's notifications include
   `borrow_request_received`.
 - User A approves → User B's include `borrow_request_approved`,
-  `credit_spent`; User A's include `credit_received` (§11.26).
+  `credit_spent`; User A's include `credit_received` (§12.26).
 - Reject a different request → the borrower's notifications include
   `borrow_request_rejected` with the rejection reason in `message`.
 - Cancel a different pending request → the owner's notifications
@@ -1188,7 +1490,7 @@ for each actor:
 - Submit a review → the reviewee's notifications include
   `review_received`.
 
-### 11.32 Notifications — read state & cross-user access
+### 12.32 Notifications — read state & cross-user access
 
 - `GET /api/notifications/unread-count` as User A → matches the number
   of `isRead: false` entries from `GET /api/notifications?isRead=false`.
@@ -1202,7 +1504,7 @@ for each actor:
   `updatedCount` matches however many were still unread; a second call
   immediately after → `updatedCount: 0`.
 
-### 11.33 Reminders — due-soon & overdue detection
+### 12.33 Reminders — due-soon & overdue detection
 
 Real due-soon/overdue tests require a loan whose `endDate` is actually
 tomorrow or in the past, which a normal borrow request can't produce
@@ -1218,7 +1520,7 @@ db.loans.updateOne({ _id: ObjectId("...") }, { $set: { endDate: new Date(new Dat
 db.loans.updateOne({ _id: ObjectId("...") }, { $set: { endDate: new Date(new Date().setUTCHours(0,0,0,0) - 86400000) } })
 ```
 
-- As the admin account from §11.24: `POST /api/notifications/run-reminders`
+- As the admin account from §12.24: `POST /api/notifications/run-reminders`
   → `200`, `data` summary shows `dueSoonCreated: 1` and/or
   `overdueCreated: 1` (depending on which loan(s) you adjusted).
 - As a non-admin user: same request → `403`.
@@ -1228,26 +1530,107 @@ db.loans.updateOne({ _id: ObjectId("...") }, { $set: { endDate: new Date(new Dat
   borrower → confirms §3.3/§4's `effectiveStatus` logic agrees with
   what the reminder job found.
 
-### 11.34 Reminders — running twice creates no duplicates
+### 12.34 Reminders — running twice creates no duplicates
 
 - Immediately call `POST /api/notifications/run-reminders` **again**
   (same admin account, same data) → `200`, but `data.dueSoonCreated`
   and `data.overdueCreated` are now both `0` — the notifications from
-  §11.33 already exist, so `alreadyNotified()` (§4.6) skips them.
+  §12.33 already exist, so `alreadyNotified()` (§4.6) skips them.
 - `GET /api/notifications` for that borrower → still only **one**
   `loan_due_soon` and one `loan_overdue` entry, not two.
 
-### 11.35 Regression check
+### 12.35 Recommendations — decision rules & cost comparison
 
-Everything from the earlier modules (§11.1-11.23) should still behave
-identically — nothing in this module altered any existing controller's
-logic beyond the specific, additive changes documented in §2 and §12.
-Spot-check at minimum: registration/login/`me` (§11.2-11.4), item
-CRUD and search (§11.6-11.10), double-booking rejection (§11.17), and
-the "no `PUT /api/loans/:id`" check (§11.21) — all should return
-exactly the same responses as before this module existed.
+- As **User B**: `POST /api/recommendations` with
+  `{ "itemId": "<drill-id>", "expectedDaysOfUse": 2, "expectedUsesPerMonth": 1 }`
+  (drill available, `creditCost: 2`) → `200`, `recommendation: "BORROW"`,
+  `costComparison.borrowCost: 4`.
+- Same item, `{ "expectedDaysOfUse": 2, "expectedUsesPerMonth": 10 }`
+  (frequent use) → if the item has a `purchasePrice` set and the
+  break-even math works out (§5.1 rule 3), `recommendation: "BUY"`; the
+  response's `factors` array names the exact threshold that fired.
+- `{ "expectedDaysOfUse": 25, "expectedUsesPerMonth": 1 }` (long
+  duration, ≥ 20 days) on an item with a `purchasePrice` →
+  `recommendation: "BUY"`, reason cites the platform's `MAX_BORROW_DAYS`.
+- Same request against an item with `availabilityStatus: "unavailable"`
+  (e.g. a racket set paused by its owner) → `available: false`; the
+  specific recommendation depends on whether that item has
+  `rentalPricePerDay`/`purchasePrice` set (§5.1 rule 1).
+- Missing `expectedDaysOfUse` or a negative value → `400`.
+- `itemId` for an item in a different community → `404`.
 
-## 12. Common errors and fixes
+### 12.36 Admin — users
+
+- As a **non-admin** user: any `/api/admin/*` route → `403`.
+- As the **admin** account (see §5.5 or promote one per §12.24):
+  `GET /api/admin/users?search=alice` → `200`, matches by name or
+  email substring, case-insensitive.
+- `GET /api/admin/users?isActive=false` → only deactivated accounts.
+- `GET /api/admin/users/:id` for a real user id → `200`, no `password`
+  field anywhere in the response.
+- `PATCH /api/admin/users/<userB-id>/status` with `{ "isActive": false }`
+  → `200`. User B's next request with their existing token (any
+  endpoint) → `403` "Your account has been deactivated." — confirming
+  §5.2's live, per-request check, not just a login-time gate.
+- User B logging in fresh after deactivation → `403` at login itself.
+- Reactivate: `{ "isActive": true }` → User B can act again immediately.
+- Admin attempting `PATCH /api/admin/users/<own-id>/status` → `400`
+  "You cannot change your own active status."
+- `{ "isActive": "false" }` (a string, not a boolean) → `400`.
+
+### 12.37 Admin — items & stats
+
+- `GET /api/admin/items` as admin → includes items from **both**
+  communities seeded/created so far (unlike every other item list
+  endpoint, which is community-scoped).
+- `GET /api/admin/items?communityId=STANFORD-DORM` → only that
+  community's items.
+- `DELETE /api/admin/items/:id` on an item with a currently `active`
+  loan → `409` "Cannot remove an item with an active loan...".
+- `DELETE /api/admin/items/:id` on an item with a `pending` borrow
+  request → `409`.
+- `DELETE /api/admin/items/:id` on an item with only `returned` loans
+  and/or non-pending requests → `200`, item removed; a subsequent
+  `GET /api/reviews/loan/:loanId` for that old loan still works (the
+  review's `item` field simply reflects a since-deleted reference).
+- `GET /api/admin/stats` → `200`, all nine counters present;
+  `activeUsers + inactiveUsers === totalUsers`.
+
+### 12.38 Security fixes — verify directly
+
+- **Duplicate-return race (§5.3):** fire two `PATCH
+  /api/loans/:id/return` requests for the same still-active loan back
+  to back (as borrower and owner, or the same user twice). Exactly one
+  returns `200`; the other returns `409` "This loan has already been
+  returned." — never two `200`s, never two `item_returned`
+  notifications.
+- **Item-deletion guard (§5.3):** as the item's own owner (not admin),
+  `DELETE /api/items/:id` on an item with an active loan → `409`,
+  same message shape as the admin version in §12.37.
+
+### 12.39 Final regression check (all modules)
+
+Everything from every earlier module should still behave exactly as
+documented in its own section — this module's only behavioral changes
+are the two security fixes above (§5.3) and the new `isActive` gate;
+nothing else was altered. Minimum spot-check, one request per area:
+
+| Area | Spot-check | Expected |
+|---|---|---|
+| Auth | Register, login, `GET /api/auth/me` | §12.2-12.4 unchanged, `/me` now also shows `isActive: true` |
+| Community isolation | Cross-community item/loan/review access | `404` throughout |
+| Items | Create, search, filter, paginate | §12.6-12.10 unchanged |
+| Availability | `GET /api/items/:id/availability` | §12.11 unchanged |
+| Borrow requests | Create, approve, reject, cancel | §12.12-12.19 unchanged |
+| Loans/returns | `/my`, `/lending`, return | §12.20-12.21 unchanged except the atomic-claim fix (§12.38) |
+| Credits | Balance, transactions, insufficient-credits block | §12.25-12.28 unchanged |
+| Reviews/reputation | Create, duplicate block, reputation aggregate | §12.29-12.30 unchanged |
+| Notifications/reminders | Trigger coverage, read state, reminder dedup | §12.31-12.34 unchanged |
+| AI recommendations | Decision rules | §12.35 (new) |
+| Admin APIs | User/item moderation, stats | §12.36-12.37 (new) |
+| Authorization/security | Role/community/ownership spoofing attempts throughout | rejected everywhere per §5.3's audit |
+
+## 13. Common errors and fixes
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -1258,7 +1641,7 @@ exactly the same responses as before this module existed.
 | `409` on register even for a "new" email | Email differs only by case/whitespace | Emails are normalized (`lowercase + trim`) — check Atlas for an existing match |
 | CORS error from the frontend | `CLIENT_ORIGIN` doesn't match the frontend's URL | Update `CLIENT_ORIGIN` in `.env` to match exactly (including port) |
 | `GET /api/items` always returns `items: []` | Logged in as a user whose `communityId` doesn't match any item's `communityId` | Confirm both accounts registered with the same `communityId` string (it's case-sensitive) |
-| `400 category must be one of: ...` | Typo or unsupported category sent from the client | Use one of the exact enum values listed in Section 10.1 |
+| `400 category must be one of: ...` | Typo or unsupported category sent from the client | Use one of the exact enum values listed in Section 11.1 |
 | Editing an item returns `403` unexpectedly | Logged in as a different user than the one who created the item | Log in as the item's actual owner, or check `item.owner` in the response |
 | `sort` query param ignored / `400` | `sort` value isn't one of the allowed fields | Use `createdAt`, `creditCost`, or `title`, optionally prefixed with `-` |
 | `500 The database is not configured to support transactions...` on `/approve` | MongoDB is a **standalone** instance (e.g. local `mongodb://localhost:27017/...`), not a replica set | Use MongoDB Atlas (already a replica set), or run local MongoDB as a single-node replica set: start `mongod --replSet rs0`, then once in `mongosh` run `rs.initiate()` |
@@ -1272,12 +1655,19 @@ exactly the same responses as before this module existed.
 | Approving succeeds but `GET /api/credits/balance` looks unchanged | Checked the wrong user, or checked before the approval response came back | Re-fetch after the `200` response; balances move inside the same transaction that creates the Loan |
 | `409` on `POST /api/reviews` even though the loan looks done | `Loan.status` is still `'active'` — an overdue loan is **not** the same as a returned one (§3.3) | `PATCH /api/loans/:id/return` first |
 | `409` on a second review attempt from the same user | The unique `{loan, reviewer}` index — one reviewer can only review a given loan once | This is by design; the other party's review is a separate document |
-| `403` on `POST /api/notifications/run-reminders` | The account's `role` is `'user'`, not `'admin'` | Promote it directly in the database — see §11.24 (there's no self-service admin endpoint) |
-| Reminder job reports `dueSoonCreated: 0` / `overdueCreated: 0` when you expected notifications | No loan's `endDate` actually matches "tomorrow" (exact UTC day) or "already passed" | Adjust a test loan's dates directly per §11.33, or just wait for real dates to line up |
+| `403` on `POST /api/notifications/run-reminders` | The account's `role` is `'user'`, not `'admin'` | Promote it directly in the database — see §12.24 (there's no self-service admin endpoint) |
+| Reminder job reports `dueSoonCreated: 0` / `overdueCreated: 0` when you expected notifications | No loan's `endDate` actually matches "tomorrow" (exact UTC day) or "already passed" | Adjust a test loan's dates directly per §12.33, or just wait for real dates to line up |
 | Running the reminder job twice creates a second `loan_due_soon`/`loan_overdue` notification | Only possible if `Notification.recipient`/`type`/`relatedEntityId` don't match what `alreadyNotified()` queries for | Confirm the loan's `borrower` and `_id` didn't change between runs; this should not happen with the shipped code |
 | `GET /api/credits/transactions?type=...` returns `400` | Typo'd type value | Use one of `signup_bonus`, `borrow_spend`, `lending_reward`, `refund`, `adjustment` exactly |
+| `403 Your account has been deactivated` right after a fresh login worked yesterday | An admin deactivated the account since then | This is checked on every request via `protect`, not just at login (§5.2) — an admin must reactivate it |
+| `400` on `POST /api/recommendations` | `expectedDaysOfUse` or `expectedUsesPerMonth` missing, non-numeric, or out of range (days must be > 0, uses must be >= 0) | Send both as JSON numbers, not strings |
+| `recommendation` is `"BORROW"` with `available: false` | The item is unavailable and has neither `rentalPricePerDay` nor `purchasePrice` set — the honest fallback (§5.1 rule 1) | List a rental or purchase price on the item if you want a more decisive recommendation for it |
+| `403` on any `/api/admin/*` route | The account's `role` is `'user'`, not `'admin'` | Promote it directly in the database — see §12.24 |
+| `400 You cannot change your own active status` | Attempting to deactivate the admin account you're currently logged in as | Use a second admin account, or deactivate from a different admin session |
+| `409` on `DELETE /api/items/:id` or `DELETE /api/admin/items/:id` | The item has an active loan or a pending borrow request | Wait for the loan to be returned, or resolve/reject the pending request, first |
+| Two `PATCH /api/loans/:id/return` calls both return `200` | Should not happen post-fix (§5.3) — if it does, the deployed code doesn't include the atomic-claim fix | Confirm `loanController.js`'s `returnLoan` uses `findOneAndUpdate` with a `status: 'active'` filter, not a plain read-then-save |
 
-## 13. Checklist — is this module working?
+## 14. Checklist — is this module working?
 
 - [ ] `npm install` completes with no errors
 - [ ] `npm run dev` connects to MongoDB and starts on the configured port
@@ -1324,4 +1714,18 @@ exactly the same responses as before this module existed.
 - [ ] `POST /api/notifications/run-reminders` requires `role: 'admin'` (`403` otherwise) and correctly detects due-soon/overdue loans
 - [ ] Running the reminder job twice never creates duplicate `loan_due_soon`/`loan_overdue` notifications
 - [ ] The reminder job never modifies `Loan.status` — only `Notification` documents are written
-- [ ] All pre-existing auth/item/borrowing/loan tests (§11.1-11.23) still pass unchanged
+- [ ] All pre-existing auth/item/borrowing/loan tests (§12.1-12.23) still pass unchanged
+- [ ] `POST /api/recommendations` returns a `recommendation`, `reason`, `costComparison`, `factors`, and `available` flag; results are deterministic for the same inputs (pure function — no randomness, no stored state)
+- [ ] Recommendation logic never fabricates a credits-to-currency exchange rate — `costComparison` reports `borrowCost`/`rentalCostPerUse`/`purchaseCost` as separate figures
+- [ ] `npm run seed` completes successfully on a fresh database and prints demo credentials
+- [ ] Running `npm run seed` a second time detects existing data and makes no changes (idempotent)
+- [ ] Deactivating a user (`PATCH /api/admin/users/:id/status`) blocks their very next authenticated request, on any endpoint, with `403` — not just future logins
+- [ ] Deactivating and reactivating a user doesn't alter any of their historical items, loans, reviews, or credit transactions
+- [ ] An admin cannot deactivate their own account
+- [ ] `GET /api/admin/users` search is regex-safe (a search term containing `.*`, `(`, or similar doesn't crash or behave as a wildcard)
+- [ ] `GET /api/admin/items` returns items from every community, not just the admin's own
+- [ ] `DELETE /api/admin/items/:id` and the owner's own `DELETE /api/items/:id` both refuse to remove an item with an active loan or pending request (`409`)
+- [ ] Every `/api/admin/*` route returns `403` for a non-admin, active, authenticated user
+- [ ] No endpoint anywhere in the API ever returns a `password` field
+- [ ] Two concurrent `PATCH /api/loans/:id/return` calls for the same loan never both succeed
+- [ ] Registration still cannot create an admin account under any request body shape
