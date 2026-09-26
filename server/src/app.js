@@ -8,6 +8,8 @@ const loanRoutes = require('./routes/loanRoutes');
 const creditRoutes = require('./routes/creditRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -44,6 +46,8 @@ app.use('/api/loans', loanRoutes);
 app.use('/api/credits', creditRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/admin', adminRoutes);
 
 // --- 404 + centralized error handling (must be last) ---
 app.use(notFound);
