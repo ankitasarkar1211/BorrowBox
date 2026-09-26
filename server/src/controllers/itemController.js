@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const Item = require('../models/Item');
+const Loan = require('../models/Loan');
+const BorrowRequest = require('../models/BorrowRequest');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const {
@@ -215,6 +217,24 @@ const deleteItem = asyncHandler(async (req, res) => {
 
   if (item.owner.toString() !== req.user._id.toString()) {
     throw new ApiError(403, 'You can only delete your own listings.');
+  }
+
+  // Edge case fixed in the final security audit: deleting an item out
+  // from under a borrower who currently has it (or is waiting to hear
+  // back on a request for it) would orphan an active transaction. This
+  // mirrors the same check the admin item-removal endpoint uses.
+  // Historical (returned) loans and resolved (non-pending) requests
+  // don't block deletion — every toPublic* shaper in this codebase
+  // already tolerates a since-deleted item reference gracefully.
+  const [hasActiveLoan, hasPendingRequest] = await Promise.all([
+    Loan.exists({ item: item._id, status: 'active' }),
+    BorrowRequest.exists({ item: item._id, status: 'pending' }),
+  ]);
+  if (hasActiveLoan) {
+    throw new ApiError(409, 'Cannot delete an item with an active loan — wait for it to be returned first.');
+  }
+  if (hasPendingRequest) {
+    throw new ApiError(409, 'Cannot delete an item with pending borrow requests — reject or wait for them to resolve first.');
   }
 
   await item.deleteOne();

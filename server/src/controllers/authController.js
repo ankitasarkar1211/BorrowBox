@@ -19,6 +19,7 @@ const toPublicUser = (user) => ({
   communityId: user.communityId,
   creditsBalance: user.creditsBalance,
   avatarUrl: user.avatarUrl,
+  isActive: user.isActive,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -112,6 +113,10 @@ const login = asyncHandler(async (req, res) => {
   const isMatch = await user.comparePassword(password);
   if (!isMatch) {
     throw invalidCredentialsError;
+  }
+
+  if (!user.isActive) {
+    throw new ApiError(403, 'Your account has been deactivated. Contact an administrator.');
   }
 
   const token = generateToken(user._id);
