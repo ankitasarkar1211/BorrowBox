@@ -32,6 +32,15 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Not authorized. User no longer exists.');
   }
 
+  // Added for the admin module: a deactivated account can hold a
+  // still-valid JWT (issued before deactivation) — checking here, on
+  // every request, is what actually stops it from taking further
+  // action, not just at login. Historical data isn't touched by this;
+  // only the ability to keep acting is.
+  if (!user.isActive) {
+    throw new ApiError(403, 'Your account has been deactivated. Contact an administrator.');
+  }
+
   req.user = user;
   next();
 });

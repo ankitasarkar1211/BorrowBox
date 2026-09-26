@@ -64,6 +64,18 @@ const userSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    // Added for the admin module. Defaults to true so every existing
+    // and newly-registered account is unaffected until an admin
+    // explicitly deactivates one via PATCH /api/admin/users/:id/status.
+    // Deactivating a user blocks them from taking any further
+    // authenticated action (enforced in the `protect` middleware and
+    // at login) but never touches their historical data — their past
+    // items, loans, reviews, and credit transactions all remain
+    // exactly as they are; only future actions are blocked.
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt
