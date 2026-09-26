@@ -200,26 +200,38 @@ const returnLoan = asyncHandler(async (req, res) => {
     throw new ApiError(409, 'This loan was cancelled and cannot be returned.');
   }
 
-  loan.status = 'returned';
-  loan.actualReturnDate = new Date();
-  await loan.save();
-  await loan.populate(POPULATE_FIELDS);
+  // Atomic claim: only succeeds if the loan is still 'active' at the
+  // instant this runs. Without this, two near-simultaneous return
+  // calls (e.g. borrower and owner both tapping "return" at once)
+  // could both pass the plain status check above, both write
+  // actualReturnDate, and both trigger a notification — the same class
+  // of race approveBorrowRequest's atomic claim already guards against
+  // for approvals.
+  const updated = await Loan.findOneAndUpdate(
+    { _id: id, status: 'active' },
+    { $set: { status: 'returned', actualReturnDate: new Date() } },
+    { new: true }
+  );
+  if (!updated) {
+    throw new ApiError(409, 'This loan has already been returned.');
+  }
+  await updated.populate(POPULATE_FIELDS);
 
   // Per the brief, only the owner is notified on return (the borrower
   // is the one performing — or at least aware of — the action).
   await safeNotify({
-    recipient: loan.owner._id || loan.owner,
+    recipient: updated.owner._id || updated.owner,
     type: 'item_returned',
     title: 'Item returned',
     message: 'Your item has been marked as returned.',
     relatedEntityType: 'Loan',
-    relatedEntityId: loan._id,
+    relatedEntityId: updated._id,
   });
 
   return res.status(200).json({
     success: true,
     message: 'Item marked as returned.',
-    data: { loan: toPublicLoan(loan) },
+    data: { loan: toPublicLoan(updated) },
   });
 });
 
