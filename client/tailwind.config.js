@@ -38,7 +38,16 @@ export default {
         subtle: '0 1px 2px 0 rgba(58, 33, 24, 0.05)',
         card: '0 1px 3px 0 rgba(58, 33, 24, 0.08), 0 1px 2px -1px rgba(58, 33, 24, 0.08)',
         modal: '0 10px 25px -5px rgba(58, 33, 24, 0.15), 0 8px 10px -6px rgba(58, 33, 24, 0.1)',
-      }
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.15s ease-out',
+      },
     },
   },
   plugins: [],
