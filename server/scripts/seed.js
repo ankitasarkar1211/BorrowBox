@@ -163,6 +163,7 @@ const seed = async () => {
     creditCost: 2,
     purchasePrice: 3000,
     rentalPricePerDay: 100,
+    images: ['https://vegapro.com.ua/image/cache/catalog/product/va-18li/va-18li-800x800.jpg'],
   });
   const tent = await Item.create({
     title: 'Camping Tent (4-person)',
@@ -174,6 +175,7 @@ const seed = async () => {
     creditCost: 3,
     purchasePrice: 5000,
     rentalPricePerDay: 150,
+    images: ['https://www.backcountry.com/images/items/900/KEL/KEL003H/ONECOL.jpg'],
   });
   const textbook = await Item.create({
     title: 'Introduction to Algorithms (CLRS)',
@@ -184,6 +186,7 @@ const seed = async () => {
     communityId: COMMUNITY_A,
     creditCost: 1,
     purchasePrice: 800,
+    images: ['https://m.media-amazon.com/images/I/41T0iBxY8FL.jpg'],
   });
   const camera = await Item.create({
     title: 'DSLR Camera',
@@ -191,10 +194,11 @@ const seed = async () => {
     category: 'electronics',
     condition: 'good',
     owner: dave._id,
-    communityId: COMMUNITY_B,
+    communityId: COMMUNITY_A,
     creditCost: 2,
     purchasePrice: 40000,
     rentalPricePerDay: 500,
+    images: ['https://www.bhphotovideo.com/images/images500x500/canon_3453c002_eos_rebel_sl3_dslr_1554819731_1473086.jpg'],
   });
   const racket = await Item.create({
     title: 'Badminton Racket Set (2 rackets + shuttlecocks)',
@@ -207,8 +211,72 @@ const seed = async () => {
     purchasePrice: 1200,
     rentalPricePerDay: 50,
     availabilityStatus: 'unavailable',
+    images: ['https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Badminton_racket_and_shuttlecock.jpg/800px-Badminton_racket_and_shuttlecock.jpg'],
   });
-  console.log('Created 5 items across both communities.');
+
+  // Five more, rounding out every remaining item category and giving
+  // Bob and Erin listings of their own (previously they only appeared
+  // as borrowers/reviewers).
+  const mixer = await Item.create({
+    title: 'Stand Mixer',
+    description: '5-quart stand mixer with whisk, paddle, and dough hook attachments.',
+    category: 'kitchen',
+    condition: 'good',
+    owner: carol._id,
+    communityId: COMMUNITY_A,
+    creditCost: 2,
+    purchasePrice: 9000,
+    rentalPricePerDay: 200,
+    images: ['https://winningcommercial.co.nz/ak/a/5/5/3/a5536dbbd5b83df5e488d3081d698df922d8f158_Sunbeam_Food_Mixer_MX7900R_Hero_Image_high-standard.png'],
+  });
+  const desk = await Item.create({
+    title: 'Study Desk with Chair',
+    description: 'Compact study desk and chair set, disassembles easily for transport.',
+    category: 'furniture',
+    condition: 'fair',
+    owner: bob._id,
+    communityId: COMMUNITY_A,
+    creditCost: 3,
+    purchasePrice: 4500,
+    images: ['https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Student_Desk.jpg/800px-Student_Desk.jpg'],
+  });
+  const jacket = await Item.create({
+    title: "Winter Jacket (Men's L)",
+    description: 'Insulated winter jacket, worn for one season, machine washable.',
+    category: 'clothing',
+    condition: 'good',
+    owner: alice._id,
+    communityId: COMMUNITY_A,
+    creditCost: 1,
+    purchasePrice: 2500,
+    images: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800'],
+  });
+  const guitar = await Item.create({
+    title: 'Acoustic Guitar',
+    description: 'Full-size steel-string acoustic, recently restrung, includes a soft case.',
+    category: 'musical_instruments',
+    condition: 'like_new',
+    owner: erin._id,
+    communityId: COMMUNITY_B,
+    creditCost: 2,
+    purchasePrice: 8000,
+    rentalPricePerDay: 150,
+    images: ['https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=800'],
+  });
+  const projector = await Item.create({
+    title: 'Portable Projector',
+    description: 'Mini HD projector, great for movie nights or presentations. HDMI + Bluetooth audio.',
+    category: 'other',
+    condition: 'good',
+    owner: erin._id,
+    communityId: COMMUNITY_B,
+    creditCost: 2,
+    purchasePrice: 6000,
+    rentalPricePerDay: 250,
+    images: ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800'],
+  });
+
+  console.log('Created 10 items across both communities, covering every item category.');
 
   // --- Borrow requests + loans (community A) ---
 
