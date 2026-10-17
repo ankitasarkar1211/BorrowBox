@@ -171,6 +171,12 @@ const getUserReviews = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     data: {
+      user: {
+        id: targetUser._id,
+        name: targetUser.name,
+        avatarUrl: targetUser.avatarUrl,
+        communityId: targetUser.communityId,
+      },
       reputation,
       reviews: reviews.map(toPublicReview),
       pagination: { page, limit, total, totalPages: Math.max(Math.ceil(total / limit), 1) },

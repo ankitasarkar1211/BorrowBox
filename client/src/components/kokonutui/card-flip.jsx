@@ -1,23 +1,12 @@
-"use client";;
-/**
- * @author: @dorianbaffier
- * @description: Card Flip
- * @version: 1.0.0
- * @date: 2025-06-26
- * @license: MIT
- * @website: https://kokonutui.com
- * @github: https://github.com/kokonut-labs/kokonutui
- */
-
-import { ArrowRight, Repeat2 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
+import { ArrowRight, Repeat2, Sparkles, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function CardFlip({
   title = "Design Systems",
   subtitle = "Explore the fundamentals",
   description = "Dive deep into the world of modern UI/UX design.",
-  features = ["UI/UX", "Modern Design", "Tailwind CSS", "Kokonut UI"],
+  features = ["Circular Sharing", "Verified Quality", "Local Trust", "Zero Waste"],
   icon: IconComponent = Repeat2,
   actionLabel = "Learn more",
   onAction,
@@ -27,190 +16,145 @@ export default function CardFlip({
 
   return (
     <div
-      className={cn("group relative h-[340px] w-full max-w-[320px] [perspective:2000px]", className)}
+      className={cn(
+        "group relative h-[360px] w-full min-w-[280px] sm:min-w-[300px] max-w-[340px] cursor-pointer select-none",
+        className
+      )}
+      style={{ perspective: "1400px" }}
       onMouseEnter={() => setIsFlipped(true)}
       onMouseLeave={() => setIsFlipped(false)}
+      onClick={() => setIsFlipped((prev) => !prev)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setIsFlipped((prev) => !prev);
+        }
+      }}
+      aria-label={`${title} - click to flip`}
     >
       <div
         className={cn(
-          "relative h-full w-full",
-          "[transform-style:preserve-3d]",
-          "transition-[transform] duration-500 ease-[cubic-bezier(0.77,0,0.175,1)]",
-          "motion-reduce:transition-none",
-          isFlipped
-            ? "[transform:rotateY(180deg)]"
-            : "[transform:rotateY(0deg)]"
+          "relative h-full w-full rounded-2xl transition-transform duration-500 ease-out",
+          isFlipped ? "[transform:rotateY(180deg)]" : "[transform:rotateY(0deg)]"
         )}
+        style={{
+          transformStyle: "preserve-3d",
+          WebkitTransformStyle: "preserve-3d",
+        }}
       >
+        {/* FRONT FACE */}
         <div
           className={cn(
-            "absolute inset-0 h-full w-full",
-            "[backface-visibility:hidden] [transform:rotateY(0deg)]",
-            "overflow-hidden rounded-2xl",
-            "bg-zinc-50 dark:bg-zinc-900",
-            "border border-zinc-200 dark:border-zinc-800/50",
-            "shadow-xs dark:shadow-lg",
-            "transition-shadow duration-500",
-            "group-hover:shadow-lg dark:group-hover:shadow-xl"
+            "absolute inset-0 h-full w-full rounded-2xl p-6 flex flex-col justify-between",
+            "bg-gradient-to-b from-white/90 via-[#FDFBF7] to-[#F5EFE6]/90",
+            "border border-[#E8DCCB] shadow-card hover:border-[#D4C2AB] hover:shadow-modal transition-all duration-300",
+            "overflow-hidden"
           )}
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(0deg)",
+          }}
         >
-          <div className="relative h-full overflow-hidden bg-gradient-to-b from-zinc-100 to-white dark:from-zinc-900 dark:to-black">
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 flex items-start justify-center pt-24"
-            >
-              <div className="relative flex h-[100px] w-[200px] items-center justify-center">
-                {[...Array(10)].map((_, i) => (
-                  <div
-                    className={cn(
-                      "absolute h-[50px] w-[50px]",
-                      "rounded-[140px]",
-                      "animate-[scale_3s_linear_infinite]",
-                      "motion-reduce:animate-none",
-                      "opacity-0",
-                      "shadow-[0_0_50px_rgba(255,165,0,0.5)]",
-                      "group-hover:animate-[scale_2s_linear_infinite]"
-                    )}
-                    key={i}
-                    style={{
-                      animationDelay: `${i * 0.3}s`,
-                    }}
-                  />
-                ))}
-              </div>
+          {/* Subtle decorative background glow */}
+          <div className="absolute -top-16 -right-16 w-36 h-36 rounded-full bg-gradient-to-br from-[#A47551]/15 to-[#A65D43]/10 blur-2xl pointer-events-none" />
+
+          {/* Top Row: Icon + Badge */}
+          <div className="flex items-center justify-between">
+            <div className="w-12 h-12 rounded-xl bg-[#F5EFE6] border border-[#E8DCCB] flex items-center justify-center text-[#A47551] shadow-xs group-hover:scale-105 transition-transform duration-300">
+              <IconComponent className="w-6 h-6" />
             </div>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#E8DCCB]/60 text-[#542F20] text-xs font-semibold tracking-wide">
+              <Sparkles className="w-3 h-3 text-[#A47551]" />
+              {subtitle}
+            </span>
           </div>
 
-          <div className="absolute right-0 bottom-0 left-0 p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-1.5">
-                <h3 className="font-semibold text-lg text-zinc-900 leading-snug tracking-tighter transition-transform duration-500 ease-out-expo group-hover:translate-y-[-4px] dark:text-white">
-                  {title}
-                </h3>
-                <p className="line-clamp-2 text-sm text-zinc-600 tracking-tight transition-transform delay-[50ms] duration-500 ease-out-expo group-hover:translate-y-[-4px] dark:text-zinc-200">
-                  {subtitle}
-                </p>
-              </div>
-              <div className="group/icon relative">
-                <div
-                  className={cn(
-                    "absolute inset-[-8px] rounded-lg transition-opacity duration-300",
-                    "bg-gradient-to-br from-orange-500/20 via-orange-500/10 to-transparent"
-                  )}
-                />
-                <Repeat2
-                  aria-hidden="true"
-                  className="relative z-10 h-4 w-4 text-orange-500 transition-transform duration-300 group-hover/icon:-rotate-12 group-hover/icon:scale-110"
-                />
-              </div>
-            </div>
+          {/* Middle: Title & Description Preview */}
+          <div className="my-auto py-4 space-y-2.5">
+            <h3 className="font-serif text-2xl font-bold text-[#3A2118] leading-tight">
+              {title}
+            </h3>
+            <p className="text-sm text-[#542F20]/80 leading-relaxed line-clamp-3">
+              {description}
+            </p>
+          </div>
+
+          {/* Bottom Prompt: Flip indicator */}
+          <div className="pt-3 border-t border-[#E8DCCB]/80 flex items-center justify-between text-xs text-[#795548]/75">
+            <span className="font-medium">Hover or tap to reveal</span>
+            <span className="inline-flex items-center gap-1 font-semibold text-[#A47551] group-hover:translate-x-0.5 transition-transform">
+              Flip <Repeat2 className="w-3.5 h-3.5" />
+            </span>
           </div>
         </div>
 
-        {/* Back of card */}
+        {/* BACK FACE */}
         <div
           className={cn(
-            "absolute inset-0 h-full w-full",
-            "[backface-visibility:hidden] [transform:rotateY(180deg)]",
-            "rounded-2xl p-6",
-            "bg-gradient-to-b from-zinc-100 to-white dark:from-zinc-900 dark:to-black",
-            "border border-zinc-200 dark:border-zinc-800",
-            "shadow-xs dark:shadow-lg",
-            "flex flex-col",
-            "transition-shadow duration-500",
-            "group-hover:shadow-lg dark:group-hover:shadow-xl"
+            "absolute inset-0 h-full w-full rounded-2xl p-6 flex flex-col justify-between",
+            "bg-gradient-to-b from-[#FAF5EE] via-[#F8F2E8] to-[#F5EFE6]",
+            "border border-[#D4C2AB] shadow-modal transition-all duration-300",
+            "overflow-hidden"
           )}
+          style={{
+            backfaceVisibility: "hidden",
+            WebkitBackfaceVisibility: "hidden",
+            transform: "rotateY(180deg)",
+          }}
         >
-          <div className="flex-1 space-y-6">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg text-zinc-900 leading-snug tracking-tight transition-transform duration-500 ease-out-expo group-hover:translate-y-[-2px] dark:text-white">
-                {title}
-              </h3>
-              <p className="line-clamp-2 text-sm text-zinc-600 tracking-tight transition-transform duration-500 ease-out-expo group-hover:translate-y-[-2px] dark:text-zinc-400">
-                {description}
-              </p>
+          {/* Header */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#A47551]">
+                Key Highlights
+              </span>
+              <Repeat2 className="w-3.5 h-3.5 text-[#795548]/60" />
             </div>
-
-            <div className="space-y-2">
-              {features.map((feature, index) => (
-                <div
-                  className="flex items-center gap-2 text-sm text-zinc-700 transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] dark:text-zinc-300"
-                  key={feature}
-                  style={{
-                    transform: isFlipped
-                      ? "translateX(0)"
-                      : "translateX(-10px)",
-                    opacity: isFlipped ? 1 : 0,
-                    transitionDelay: `${index * 50 + 150}ms`,
-                  }}
-                >
-                  <ArrowRight
-                    aria-hidden="true"
-                    className="h-3 w-3 text-orange-500"
-                  />
-                  <span>{feature}</span>
-                </div>
-              ))}
-            </div>
+            <h4 className="font-serif text-lg font-bold text-[#3A2118] leading-snug">
+              {title}
+            </h4>
+            <p className="mt-1 text-xs text-[#542F20]/75 line-clamp-2">
+              {description}
+            </p>
           </div>
 
-          <div className="mt-6 border-zinc-200 border-t pt-6 dark:border-zinc-800">
-            <button
-              className={cn(
-                "group/start relative w-full",
-                "flex items-center justify-between",
-                "-m-3 rounded-xl p-3",
-                "transition-[transform,background] duration-300",
-                "bg-gradient-to-r from-zinc-100 via-zinc-100 to-zinc-100",
-                "dark:from-zinc-800 dark:via-zinc-800 dark:to-zinc-800",
-                "hover:from-0% hover:from-orange-500/10 hover:via-100% hover:via-orange-500/5 hover:to-100% hover:to-transparent",
-                "dark:hover:from-0% dark:hover:from-orange-500/20 dark:hover:via-100% dark:hover:via-orange-500/10 dark:hover:to-100% dark:hover:to-transparent",
-                "hover:scale-[1.02] active:scale-[0.98]",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-zinc-900"
-              )}
-              onClick={onAction}
-              type="button"
-            >
-              <span className="font-medium text-sm text-[#3A2118] transition-colors duration-300 group-hover/start:text-[#A65D43]">
-                {actionLabel}
-              </span>
-              <div className="group/icon relative">
-                <div
-                  className={cn(
-                    "absolute inset-[-6px] rounded-lg transition-[transform,opacity] duration-300",
-                    "bg-gradient-to-br from-orange-500/20 via-orange-500/10 to-transparent",
-                    "scale-90 opacity-0 group-hover/start:scale-100 group-hover/start:opacity-100"
-                  )}
-                />
-                <ArrowRight
-                  aria-hidden="true"
-                  className="relative z-10 h-4 w-4 text-orange-500 transition-transform duration-300 group-hover/start:translate-x-0.5 group-hover/start:scale-110"
-                />
+          {/* Features List */}
+          <div className="space-y-2.5 my-auto py-2">
+            {features.map((feature, i) => (
+              <div
+                key={feature}
+                className="flex items-center gap-2.5 text-xs font-medium text-[#3A2118]"
+                style={{
+                  transitionDelay: `${i * 40}ms`,
+                }}
+              >
+                <div className="w-4 h-4 rounded-full bg-[#EBF3E8] border border-[#CFE2CA] flex items-center justify-center flex-shrink-0 text-[#2E5A27]">
+                  <CheckCircle2 className="w-3 h-3" />
+                </div>
+                <span className="leading-tight">{feature}</span>
               </div>
+            ))}
+          </div>
+
+          {/* Action Button */}
+          <div className="pt-3 border-t border-[#E8DCCB]">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onAction) onAction();
+              }}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#542F20] to-[#3A2118] hover:from-[#3A2118] hover:to-[#2B211C] text-white text-xs font-semibold shadow-xs hover:shadow transition-all group/btn"
+            >
+              <span>{actionLabel}</span>
+              <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
             </button>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes scale {
-            0% {
-                transform: scale(2);
-                opacity: 0;
-                box-shadow: 0px 0px 50px rgba(164, 117, 81, 0.5);
-            }
-            50% {
-                transform: translate(0px, -5px) scale(1);
-                opacity: 1;
-                box-shadow: 0px 8px 20px rgba(164, 117, 81, 0.5);
-            }
-            100% {
-                transform: translate(0px, 5px) scale(0.1);
-                opacity: 0;
-                box-shadow: 0px 10px 20px rgba(164, 117, 81, 0);
-            }
-        }
-      `}</style>
     </div>
   );
 }

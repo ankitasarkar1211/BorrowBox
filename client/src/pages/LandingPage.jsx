@@ -1,5 +1,5 @@
 import React from 'react';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Package, ArrowRight, Recycle, Users, Coins, Sparkles,
@@ -15,6 +15,7 @@ const COMMUNITY_PILLARS = [
   {
     title: 'Circular Reuse',
     subtitle: 'SDG 12 in Action',
+    icon: Recycle,
     description: 'Drills, cameras, camping tents, and textbooks — borrow instead of buying single-use clutter.',
     features: ['Zero landfill waste', 'Verified item condition', 'Community shared access', 'Save money & space'],
     actionLabel: 'Explore items',
@@ -22,6 +23,7 @@ const COMMUNITY_PILLARS = [
   {
     title: 'Reciprocal Credits',
     subtitle: 'No Cash Exchanged',
+    icon: Coins,
     description: 'Earn credits when you lend your items. Spend credits to borrow what you need anytime.',
     features: ['+5 credits on signup', 'Daily credit rates', 'Automated escrow ledger', 'Lender reward bonus'],
     actionLabel: 'How credits work',
@@ -29,6 +31,7 @@ const COMMUNITY_PILLARS = [
   {
     title: 'Trusted Community',
     subtitle: 'Campus & Neighborhood',
+    icon: Users,
     description: 'Strict community isolation ensures you only share with peers and colleagues you know.',
     features: ['Single community scope', 'Transparent peer reviews', 'Verified borrower profiles', 'Due-date reminders'],
     actionLabel: 'Join your group',
@@ -36,6 +39,7 @@ const COMMUNITY_PILLARS = [
 ];
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const { user, isInitialized } = useAuthStore();
 
   if (isInitialized && user) {
@@ -151,13 +155,16 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.15, duration: 0.5 }}
+              className="w-full max-w-[340px] flex justify-center"
             >
               <CardFlip
                 title={pillar.title}
                 subtitle={pillar.subtitle}
+                icon={pillar.icon}
                 description={pillar.description}
                 features={pillar.features}
                 actionLabel={pillar.actionLabel}
+                onAction={() => navigate('/register')}
               />
             </motion.div>
           ))}

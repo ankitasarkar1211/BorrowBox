@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead } from '../../api/notifications.api';
@@ -22,6 +22,7 @@ const NOTIFICATION_LABELS = {
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef(null);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: unreadData } = useQuery({
@@ -51,6 +52,26 @@ export default function NotificationBell() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
+
+  const handleNotificationClick = (n) => {
+    if (!n.isRead) {
+      markReadMutation.mutate(n.id);
+    }
+    setIsOpen(false);
+    if (n.relatedEntityType === 'BorrowRequest' && n.relatedEntityId) {
+      navigate(`/requests/${n.relatedEntityId}`);
+    } else if (n.relatedEntityType === 'Loan' && n.relatedEntityId) {
+      navigate(`/loans/${n.relatedEntityId}`);
+    } else if (n.relatedEntityType === 'Item' && n.relatedEntityId) {
+      navigate(`/items/${n.relatedEntityId}`);
+    } else if (n.relatedEntityType === 'Review') {
+      navigate('/reviews/my');
+    } else if (n.type?.includes('credit')) {
+      navigate('/credits');
+    } else {
+      navigate('/notifications');
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -101,7 +122,7 @@ export default function NotificationBell() {
               notifications.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => !n.isRead && markReadMutation.mutate(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={`w-full text-left px-4 py-3 border-b border-[#E8DCCB]/60 last:border-0 hover:bg-[#F5EFE6] transition ${
                     !n.isRead ? 'bg-[#F5EFE6]/50' : ''
                   }`}

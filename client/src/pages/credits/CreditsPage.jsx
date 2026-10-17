@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -23,6 +24,7 @@ const TYPE_ICONS = {
 };
 
 export default function CreditsPage() {
+  const navigate = useNavigate();
   const [type, setType] = useState('');
   const [page, setPage] = useState(1);
 
@@ -107,11 +109,12 @@ export default function CreditsPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex justify-center"
+          className="w-full flex justify-center"
         >
           <CardFlip
             title="How to Earn More"
             subtitle="Reciprocal Economy"
+            icon={Coins}
             description="BorrowBox rewards members who contribute to their community."
             features={[
               'List items in good condition',
@@ -120,7 +123,8 @@ export default function CreditsPage() {
               'Keep items well maintained',
             ]}
             actionLabel="List an item now"
-            className="h-full min-h-[280px]"
+            onAction={() => navigate('/items/new')}
+            className="w-full max-w-[340px]"
           />
         </motion.div>
       </div>

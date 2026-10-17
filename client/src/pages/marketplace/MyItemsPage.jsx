@@ -20,7 +20,11 @@ export default function MyItemsPage() {
     queryFn: () => getItems({ limit: 50, sort: '-createdAt' }),
   });
 
-  const myItems = (data?.data?.items || []).filter((item) => item.owner?.id === user?.id);
+  const myItems = (data?.data?.items || []).filter((item) => {
+    const ownerId = item.owner?.id || item.owner?._id || item.owner;
+    const currentUserId = user?.id || user?._id;
+    return Boolean(ownerId && currentUserId && ownerId.toString() === currentUserId.toString());
+  });
 
   return (
     <div>

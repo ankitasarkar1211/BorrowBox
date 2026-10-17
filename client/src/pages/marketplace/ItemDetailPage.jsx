@@ -20,6 +20,7 @@ export default function ItemDetailPage() {
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['item', id],
@@ -56,7 +57,8 @@ export default function ItemDetailPage() {
   }
 
   const item = data.data.item;
-  const isOwner = item.owner?.id === user?.id;
+  const isOwner =
+    Boolean(user?.id && (item.owner?.id === user.id || item.owner === user.id || item.owner?._id === user.id));
   const categoryLabel = CATEGORIES.find((c) => c.value === item.category)?.label || item.category;
   const conditionLabel = ITEM_CONDITIONS.find((c) => c.value === item.condition)?.label || item.condition;
 
@@ -71,11 +73,20 @@ export default function ItemDetailPage() {
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-5">
-          <div className="aspect-video bg-[#F5EFE6] rounded-xl border border-[#E8DCCB] overflow-hidden flex items-center justify-center">
-            {item.images?.[0] ? (
-              <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+          <div className="aspect-video bg-gradient-to-br from-[#F5EFE6] via-[#FDFBF7] to-[#E8DCCB]/60 rounded-2xl border border-[#E8DCCB] overflow-hidden flex items-center justify-center">
+            {item.images?.[0] && !imgError ? (
+              <img
+                src={item.images[0]}
+                alt={item.title}
+                className="w-full h-full object-cover"
+                onError={() => setImgError(true)}
+              />
             ) : (
-              <span className="text-sm text-[#795548]/50">No image provided</span>
+              <div className="flex flex-col items-center justify-center gap-2 text-[#795548]/70 p-6 text-center">
+                <Tag className="w-10 h-10 text-[#A47551]/60" />
+                <span className="text-sm font-medium">{categoryLabel}</span>
+                <span className="text-xs text-[#795548]/50">No photo provided</span>
+              </div>
             )}
           </div>
 
