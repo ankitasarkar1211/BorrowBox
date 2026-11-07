@@ -163,7 +163,7 @@ const seed = async () => {
     creditCost: 2,
     purchasePrice: 3000,
     rentalPricePerDay: 100,
-    images: ['https://vegapro.com.ua/image/cache/catalog/product/va-18li/va-18li-800x800.jpg'],
+    images: ['https://m.media-amazon.com/images/I/610UVWS9bIL._AC_UF1000,1000_QL80_.jpg'],
   });
   const tent = await Item.create({
     title: 'Camping Tent (4-person)',
@@ -175,7 +175,7 @@ const seed = async () => {
     creditCost: 3,
     purchasePrice: 5000,
     rentalPricePerDay: 150,
-    images: ['https://www.backcountry.com/images/items/900/KEL/KEL003H/ONECOL.jpg'],
+    images: ['https://contents.mediadecathlon.com/p2754239/b4c15b50e2f8c081cc55700c22a8301a/p2754239.jpg'],
   });
   const textbook = await Item.create({
     title: 'Introduction to Algorithms (CLRS)',
@@ -186,7 +186,7 @@ const seed = async () => {
     communityId: COMMUNITY_A,
     creditCost: 1,
     purchasePrice: 800,
-    images: ['https://m.media-amazon.com/images/I/41T0iBxY8FL.jpg'],
+    images: ['https://m.media-amazon.com/images/I/61O5SsbL8HL.jpg'],
   });
   const camera = await Item.create({
     title: 'DSLR Camera',
@@ -227,7 +227,7 @@ const seed = async () => {
     creditCost: 2,
     purchasePrice: 9000,
     rentalPricePerDay: 200,
-    images: ['https://winningcommercial.co.nz/ak/a/5/5/3/a5536dbbd5b83df5e488d3081d698df922d8f158_Sunbeam_Food_Mixer_MX7900R_Hero_Image_high-standard.png'],
+    images: ['https://m.media-amazon.com/images/I/61HeVJ4k8hL._AC_UF894,1000_QL80_.jpg'],
   });
   const desk = await Item.create({
     title: 'Study Desk with Chair',
@@ -238,7 +238,7 @@ const seed = async () => {
     communityId: COMMUNITY_A,
     creditCost: 3,
     purchasePrice: 4500,
-    images: ['https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Student_Desk.jpg/800px-Student_Desk.jpg'],
+    images: ['https://www.nismaayadecor.in/cdn/shop/files/eston-solid-ash-wood-rattan-study-table_1.jpg?v=1713956027'],
   });
   const jacket = await Item.create({
     title: "Winter Jacket (Men's L)",
@@ -249,7 +249,7 @@ const seed = async () => {
     communityId: COMMUNITY_A,
     creditCost: 1,
     purchasePrice: 2500,
-    images: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800'],
+    images: ['https://www.missmosa.in/cdn/shop/products/Emma_Thick_Oversized_Winter_Jacket_1.jpg?v=1782291260'],
   });
   const guitar = await Item.create({
     title: 'Acoustic Guitar',
