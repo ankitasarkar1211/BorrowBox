@@ -9,6 +9,15 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   await connectDB();
 
+  // In development (incl. the ephemeral in-memory DB fallback), (re)seed
+  // demo data so the frontend has listings to show. seed() is idempotent:
+  // it exits early when the demo admin already exists, so persistent
+  // databases are never duplicated.
+  if (process.env.NODE_ENV !== 'production') {
+    const { seed } = require('../scripts/seed');
+    await seed();
+  }
+
   const server = app.listen(PORT, () => {
     console.log(`BorrowBox API running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });

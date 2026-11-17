@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, PackageSearch, Sparkles } from 'lucide-react';
 import { getItems } from '../../api/items.api';
+import { useAuthStore } from '../../store/authStore';
 import ItemCard from '../../components/items/ItemCard';
 import ItemFilters from '../../components/items/ItemFilters';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -26,6 +27,8 @@ export default function MarketplacePage() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, filters.category, filters.condition, filters.sort]);
+
+  const user = useAuthStore((s) => s.user);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['items', { ...filters, search: debouncedSearch, page }],
@@ -86,7 +89,13 @@ export default function MarketplacePage() {
         <EmptyState
           icon={PackageSearch}
           title="No items found"
-          description="Try broadening your search term or clearing active filters to see all available listings."
+          description={
+            filters.search || filters.category || filters.condition
+              ? 'Try broadening your search term or clearing active filters to see all available listings.'
+              : user
+                ? `No listings in your community ("${user.communityId}"). Seed data lives in the IEM-KOLKATA and STANFORD-DORM communities — log in as a demo user from one of them (see server/scripts/seed.js).`
+                : 'Log in to see items in your community.'
+          }
           action={
             <button
               onClick={() => setFilters(DEFAULT_FILTERS)}

@@ -101,7 +101,6 @@ const seed = async () => {
   const alreadySeeded = await User.exists({ email: 'admin@borrowbox.dev' });
   if (alreadySeeded) {
     console.log('Seed data already present (admin@borrowbox.dev exists) — skipping. Nothing was changed.');
-    await mongoose.connection.close();
     return;
   }
 
@@ -194,7 +193,7 @@ const seed = async () => {
     category: 'electronics',
     condition: 'good',
     owner: dave._id,
-    communityId: COMMUNITY_A,
+    communityId: COMMUNITY_B,
     creditCost: 2,
     purchasePrice: 40000,
     rentalPricePerDay: 500,
@@ -488,12 +487,23 @@ const seed = async () => {
   console.log('  carol@borrowbox.dev / Password123  (community: ' + COMMUNITY_A + ')');
   console.log('  dave@borrowbox.dev  / Password123  (community: ' + COMMUNITY_B + ')');
   console.log('  erin@borrowbox.dev  / Password123  (community: ' + COMMUNITY_B + ')');
-
-  await mongoose.connection.close();
 };
 
-seed().catch(async (err) => {
-  console.error('Seed script failed:', err);
-  await mongoose.connection.close().catch(() => {});
-  process.exit(1);
-});
+const runSeed = async () => {
+  try {
+    await seed();
+  } catch (err) {
+    console.error('Seed script failed:', err);
+    await mongoose.connection.close().catch(() => {});
+    process.exit(1);
+  }
+};
+
+// Only run when invoked directly (`npm run seed`). When required by the
+// server, seed() is called explicitly so the shared mongoose connection
+// stays owned by the server process.
+if (require.main === module) {
+  runSeed();
+}
+
+module.exports = { seed };
